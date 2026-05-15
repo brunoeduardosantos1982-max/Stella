@@ -39,7 +39,11 @@ class VaultRepository(ABC):
 
     @abstractmethod
     def list_notes_in_folder(self, folder: str) -> list[str]:
-        """Lista paths de notas .md diretas dentro de `folder`. Não recursivo."""
+        """Lista paths de notas .md diretas dentro de `folder`. Não recursivo.
+
+        Retorna `[]` se a pasta não existir (não levanta exceção). Atenção a
+        typos no path: ausência da pasta é silenciosa por design.
+        """
         ...
 
     @abstractmethod

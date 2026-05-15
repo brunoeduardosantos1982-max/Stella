@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 
+# alias para evitar shadowing com o parâmetro `frontmatter` em write_note
 import frontmatter as frontmatter_module
 import portalocker
 
@@ -53,4 +54,5 @@ class ObsidianVaultRepository(VaultRepository):
         self.write_note(path, content=nota.content, frontmatter=novo_frontmatter)
 
     def note_exists(self, path: str) -> bool:
-        return self._full_path(path).exists()
+        # is_file() em vez de exists() para distinguir nota de diretório homônimo
+        return self._full_path(path).is_file()
