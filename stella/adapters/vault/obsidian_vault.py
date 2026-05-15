@@ -1,7 +1,8 @@
 from pathlib import Path
 from typing import Any
 
-import frontmatter
+import frontmatter as frontmatter_module
+import portalocker
 
 from stella.adapters.vault.base import Note, VaultRepository
 
@@ -19,7 +20,7 @@ class ObsidianVaultRepository(VaultRepository):
         full = self._full_path(path)
         if not full.exists():
             raise FileNotFoundError(f"Nota não encontrada: {path}")
-        post = frontmatter.loads(full.read_text(encoding="utf-8"))
+        post = frontmatter_module.loads(full.read_text(encoding="utf-8"))
         return Note(path=path, frontmatter=dict(post.metadata), content=post.content)
 
     def list_notes_in_folder(self, folder: str) -> list[str]:
@@ -35,10 +36,19 @@ class ObsidianVaultRepository(VaultRepository):
     def write_note(
         self, path: str, content: str, frontmatter: dict[str, Any]
     ) -> None:
-        raise NotImplementedError("Implementado na Task 9")
+        full = self._full_path(path)
+        full.parent.mkdir(parents=True, exist_ok=True)
+
+        post = frontmatter_module.Post(content, **frontmatter)
+        texto = frontmatter_module.dumps(post)
+
+        tmp = full.with_suffix(full.suffix + ".tmp")
+        with portalocker.Lock(str(tmp), mode="w", timeout=5, encoding="utf-8") as fh:
+            fh.write(texto)
+        tmp.replace(full)
 
     def update_frontmatter(self, path: str, updates: dict[str, Any]) -> None:
         raise NotImplementedError("Implementado na Task 10")
 
     def note_exists(self, path: str) -> bool:
-        raise NotImplementedError("Implementado na Task 9")
+        return self._full_path(path).exists()
