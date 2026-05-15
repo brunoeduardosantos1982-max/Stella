@@ -73,3 +73,31 @@ def test_note_exists_retorna_true_para_nota_existente(vault_tmp):
 def test_note_exists_retorna_false_para_nota_inexistente(vault_tmp):
     repo = ObsidianVaultRepository(vault_root=vault_tmp)
     assert repo.note_exists("A00 Inbox/nao-existe.md") is False
+
+
+def test_update_frontmatter_altera_campo_existente(vault_tmp):
+    repo = ObsidianVaultRepository(vault_root=vault_tmp)
+    repo.update_frontmatter("B01 Projetos/Centro Viagens.md", {"status": "concluido"})
+    nota = repo.read_note("B01 Projetos/Centro Viagens.md")
+    assert nota.frontmatter["status"] == "concluido"
+    assert nota.frontmatter["tipo"] == "projeto"  # campo intacto
+
+
+def test_update_frontmatter_adiciona_campo_novo(vault_tmp):
+    repo = ObsidianVaultRepository(vault_root=vault_tmp)
+    repo.update_frontmatter("B01 Projetos/Centro Viagens.md", {"prioridade": "alta"})
+    nota = repo.read_note("B01 Projetos/Centro Viagens.md")
+    assert nota.frontmatter["prioridade"] == "alta"
+
+
+def test_update_frontmatter_preserva_conteudo(vault_tmp):
+    repo = ObsidianVaultRepository(vault_root=vault_tmp)
+    repo.update_frontmatter("B01 Projetos/Centro Viagens.md", {"status": "pausado"})
+    nota = repo.read_note("B01 Projetos/Centro Viagens.md")
+    assert "Projeto de viagens." in nota.content
+
+
+def test_update_frontmatter_nota_inexistente_levanta_erro(vault_tmp):
+    repo = ObsidianVaultRepository(vault_root=vault_tmp)
+    with pytest.raises(FileNotFoundError):
+        repo.update_frontmatter("B01 Projetos/fantasma.md", {"x": 1})

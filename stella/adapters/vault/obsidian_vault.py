@@ -48,7 +48,9 @@ class ObsidianVaultRepository(VaultRepository):
         tmp.replace(full)
 
     def update_frontmatter(self, path: str, updates: dict[str, Any]) -> None:
-        raise NotImplementedError("Implementado na Task 10")
+        nota = self.read_note(path)
+        novo_frontmatter = {**nota.frontmatter, **updates}
+        self.write_note(path, content=nota.content, frontmatter=novo_frontmatter)
 
     def note_exists(self, path: str) -> bool:
         return self._full_path(path).exists()
