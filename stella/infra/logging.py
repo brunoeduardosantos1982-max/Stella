@@ -7,6 +7,17 @@ def setup_logging(log_dir: Path | None = None) -> logging.Logger:
     """Configura o logger 'stella' com saída rotativa em arquivo.
 
     Idempotente: chamar mais de uma vez não duplica handlers.
+
+    Limitações conhecidas:
+    - Se a primeira chamada usar `log_dir=A` e uma segunda usar `log_dir=B`,
+      a segunda retorna silenciosamente o logger apontando para A (a guarda
+      de idempotência ignora `log_dir` diferentes). Em testes que precisem
+      reconfigurar para diretório novo, limpar `getLogger("stella").handlers`
+      antes da segunda chamada (ver `tests/infra/conftest.py`).
+    - `RotatingFileHandler` NÃO é multi-process safe. Se múltiplos processos
+      (Stella + sub-processo Task Scheduler, por exemplo) gravarem no mesmo
+      arquivo simultaneamente, pode haver perda de linhas durante rotação.
+      A Fase 1 é single-process; revisitar antes de introduzir sub-processos.
     """
     if log_dir is None:
         log_dir = Path.home() / ".stella" / "logs"
