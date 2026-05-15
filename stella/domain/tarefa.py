@@ -23,12 +23,19 @@ class Tarefa:
     resultado_path: str | None = None
     tentativas: int = 1
 
-    def marcar_concluida(self, resultado_path: str) -> None:
+    def marcar_concluida(
+        self,
+        resultado_path: str,
+        concluida_em: datetime | None = None,
+    ) -> None:
         if not resultado_path:
             raise ValueError("Tarefa concluída exige resultado_path não vazio")
         self.status = StatusTarefa.CONCLUIDA
         self.resultado_path = resultado_path
-        self.concluida_em = datetime.now()
+        self.concluida_em = concluida_em or datetime.now()
 
     def marcar_falha(self) -> None:
         self.status = StatusTarefa.FALHA
+
+    def marcar_cancelada(self) -> None:
+        self.status = StatusTarefa.CANCELADA
