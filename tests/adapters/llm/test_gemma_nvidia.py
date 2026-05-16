@@ -70,12 +70,28 @@ def test_complete_usa_modelo_gemma():
 def test_chat_envia_mensagens_no_formato_correto():
     fake = _FakeOpenAIClient("resposta")
     provider = GemmaNvidiaProvider(api_key="nv-teste", client=fake)
-    provider.chat([
-        Message(role="system", content="você é a Stella"),
-        Message(role="user", content="oi"),
-    ])
+    provider.chat(
+        [
+            Message(role="system", content="você é a Stella"),
+            Message(role="user", content="oi"),
+        ]
+    )
     enviado = fake.chat.completions.ultima_chamada["messages"]
     assert enviado == [
         {"role": "system", "content": "você é a Stella"},
         {"role": "user", "content": "oi"},
     ]
+
+
+def test_provider_registra_uso_quando_tracker_passado(tmp_path):
+    from datetime import datetime as _dt
+
+    from stella.infra.usage_tracker import UsageTracker
+
+    tracker = UsageTracker(usage_dir=tmp_path)
+    fake = _FakeOpenAIClient("ok")
+    provider = GemmaNvidiaProvider(api_key="nv", client=fake, tracker=tracker)
+    provider.complete("oi")
+    total = tracker.total_do_dia(_dt.now())
+    assert total["chamadas"] == 1
+    assert total["tokens_input"] == 12  # do _FakeUsage

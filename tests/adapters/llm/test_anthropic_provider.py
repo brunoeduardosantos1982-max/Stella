@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from stella.adapters.llm.base import Message
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
+from stella.adapters.llm.base import Message
 
 
 # --- Dublês do SDK Anthropic ---
@@ -60,10 +60,40 @@ def test_complete_usa_modelo_sonnet():
 def test_chat_separa_system_das_demais_mensagens():
     fake = _FakeAnthropicClient("resposta")
     provider = AnthropicProvider(api_key="ant-teste", client=fake)
-    provider.chat([
-        Message(role="system", content="você é a Stella"),
-        Message(role="user", content="oi"),
-    ])
+    provider.chat(
+        [
+            Message(role="system", content="você é a Stella"),
+            Message(role="user", content="oi"),
+        ]
+    )
     chamada = fake.messages.ultima_chamada
     assert chamada["system"] == "você é a Stella"
     assert chamada["messages"] == [{"role": "user", "content": "oi"}]
+
+
+def test_provider_registra_uso_quando_tracker_passado(tmp_path):
+    from datetime import datetime as _dt
+
+    from stella.infra.usage_tracker import UsageTracker
+
+    tracker = UsageTracker(usage_dir=tmp_path)
+    fake = _FakeAnthropicClient("ok")
+    provider = AnthropicProvider(api_key="ant", client=fake, tracker=tracker)
+    provider.complete("oi")
+    total = tracker.total_do_dia(_dt.now())
+    assert total["chamadas"] == 1
+    assert total["tokens_input"] == 20  # do _FakeUsage anthropic
+
+
+def test_max_tokens_default_4096() -> None:
+    fake = _FakeAnthropicClient()
+    provider = AnthropicProvider(api_key="ant", client=fake)
+    provider.complete("oi")
+    assert fake.messages.ultima_chamada["max_tokens"] == 4096
+
+
+def test_max_tokens_configuravel_via_init() -> None:
+    fake = _FakeAnthropicClient()
+    provider = AnthropicProvider(api_key="ant", client=fake, max_tokens=512)
+    provider.complete("oi")
+    assert fake.messages.ultima_chamada["max_tokens"] == 512

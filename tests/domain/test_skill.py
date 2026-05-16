@@ -1,4 +1,5 @@
-from stella.domain.skill import Skill, OrigemSkill
+from stella.domain.enums import ModeloIA
+from stella.domain.skill import OrigemSkill, Skill
 
 
 def test_skill_estrutura():
@@ -8,7 +9,7 @@ def test_skill_estrutura():
         descricao="Antes de criar qualquer coisa nova",
         arquivo_path="stella/prompts/skills/brainstorming.md",
         gatilhos=["vamos planejar", "nova ideia"],
-        modelo_minimo="sonnet",
+        modelo_minimo=ModeloIA.SONNET,
         origem=OrigemSkill.CORE,
     )
     assert s.origem == OrigemSkill.CORE

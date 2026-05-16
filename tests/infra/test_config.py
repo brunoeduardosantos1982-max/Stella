@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 from pydantic import ValidationError
 
@@ -69,6 +67,16 @@ def test_teto_mensal_usd_rejeita_zero(monkeypatch, tmp_path):
     monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "ant-teste")
     monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
     monkeypatch.setenv("STELLA_TETO_MENSAL_USD", "0")
+
+    with pytest.raises(ValidationError):
+        StellaConfig()
+
+
+def test_modelo_padrao_invalido_levanta_erro(monkeypatch, tmp_path):
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "nv")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "ant")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+    monkeypatch.setenv("STELLA_MODELO_PADRAO", "gpt4")
 
     with pytest.raises(ValidationError):
         StellaConfig()

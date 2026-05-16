@@ -2,6 +2,22 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 
+class LLMProviderError(Exception):
+    """Erro genérico de provider de LLM (fronteira do adapter)."""
+
+
+class LLMRateLimitError(LLMProviderError):
+    """Quota/rate limit excedido."""
+
+
+class LLMAuthenticationError(LLMProviderError):
+    """Falha de autenticação (chave inválida ou expirada)."""
+
+
+class LLMUnavailableError(LLMProviderError):
+    """Serviço indisponível (timeout, 5xx, conexão recusada)."""
+
+
 @dataclass
 class Message:
     role: str  # "system" | "user" | "assistant"
@@ -23,9 +39,7 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def complete(self, prompt: str) -> LLMResponse:
-        ...
+    def complete(self, prompt: str) -> LLMResponse: ...
 
     @abstractmethod
-    def chat(self, messages: list[Message]) -> LLMResponse:
-        ...
+    def chat(self, messages: list[Message]) -> LLMResponse: ...

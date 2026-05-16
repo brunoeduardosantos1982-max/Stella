@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from stella.domain.tarefa import Tarefa, StatusTarefa
+from stella.domain.tarefa import StatusTarefa, Tarefa
 
 
 def test_tarefa_nasce_pendente():
