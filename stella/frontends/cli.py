@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 
 import typer
@@ -8,6 +9,23 @@ from stella.usecases.atualizar_memoria import RegistroInteracao
 from stella.usecases.base import UsecaseError
 from stella.usecases.capturar_ideia import EntradaCaptura
 from stella.usecases.responder_projeto import EntradaPergunta
+
+
+def _forcar_stdout_utf8() -> None:
+    """No Windows, o console default usa cp1252 e estoura em emojis (✅, ⚠️, etc).
+
+    Sonnet costuma devolver respostas com emojis — sem este reconfigure, qualquer
+    `typer.echo` com emoji levanta UnicodeEncodeError. Idempotente.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+_forcar_stdout_utf8()
 
 app = typer.Typer(help="Stella — assistente pessoal do Bruno.")
 
