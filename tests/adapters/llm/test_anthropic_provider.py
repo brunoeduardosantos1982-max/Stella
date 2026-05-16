@@ -69,3 +69,17 @@ def test_chat_separa_system_das_demais_mensagens():
     chamada = fake.messages.ultima_chamada
     assert chamada["system"] == "você é a Stella"
     assert chamada["messages"] == [{"role": "user", "content": "oi"}]
+
+
+def test_provider_registra_uso_quando_tracker_passado(tmp_path):
+    from datetime import datetime as _dt
+
+    from stella.infra.usage_tracker import UsageTracker
+
+    tracker = UsageTracker(usage_dir=tmp_path)
+    fake = _FakeAnthropicClient("ok")
+    provider = AnthropicProvider(api_key="ant", client=fake, tracker=tracker)
+    provider.complete("oi")
+    total = tracker.total_do_dia(_dt.now())
+    assert total["chamadas"] == 1
+    assert total["tokens_input"] == 20  # do _FakeUsage anthropic

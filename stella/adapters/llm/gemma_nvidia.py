@@ -1,8 +1,10 @@
+from datetime import datetime
 from typing import Any
 
 from openai import OpenAI
 
 from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
+from stella.infra.usage_tracker import UsageRecord, UsageTracker, estimar_custo
 
 _NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
 _MODELO = "google/gemma-4-31b-it"
@@ -14,11 +16,17 @@ class GemmaNvidiaProvider(LLMProvider):
     O parâmetro `client` permite injetar um dublê nos testes.
     """
 
-    def __init__(self, api_key: str, client: Any = None) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        client: Any = None,
+        tracker: UsageTracker | None = None,
+    ) -> None:
         self._client = client or OpenAI(
             base_url=_NVIDIA_BASE_URL,
             api_key=api_key,
         )
+        self._tracker = tracker
 
     def complete(self, prompt: str) -> LLMResponse:
         return self.chat([Message(role="user", content=prompt)])
@@ -29,8 +37,22 @@ class GemmaNvidiaProvider(LLMProvider):
             model=_MODELO,
             messages=payload,
         )
-        return LLMResponse(
+        result = LLMResponse(
             texto=resp.choices[0].message.content,
             tokens_input=resp.usage.prompt_tokens,
             tokens_output=resp.usage.completion_tokens,
         )
+        if self._tracker is not None:
+            self._tracker.record(
+                UsageRecord(
+                    momento=datetime.now(),
+                    provider="gemma_nvidia",
+                    modelo=_MODELO,
+                    tokens_input=resp.usage.prompt_tokens,
+                    tokens_output=resp.usage.completion_tokens,
+                    custo_usd=estimar_custo(
+                        _MODELO, resp.usage.prompt_tokens, resp.usage.completion_tokens
+                    ),
+                )
+            )
+        return result
