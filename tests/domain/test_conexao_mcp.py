@@ -1,4 +1,5 @@
 from stella.domain.conexao_mcp import ConexaoMCP, StatusMCP
+from stella.domain.enums import ModeloIA
 
 
 def test_conexao_mcp_estrutura():
@@ -8,7 +9,7 @@ def test_conexao_mcp_estrutura():
         endpoint="https://api.search.brave.com",
         status=StatusMCP.PRE_CONFIGURADO,
         ferramentas_expostas=["web_search"],
-        requer_modelo="sonnet",
+        requer_modelo=ModeloIA.SONNET,
     )
     assert c.status == StatusMCP.PRE_CONFIGURADO
     assert "web_search" in c.ferramentas_expostas

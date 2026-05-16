@@ -3,6 +3,8 @@ from pathlib import Path
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from stella.domain.enums import ModeloIA
+
 
 class StellaConfig(BaseSettings):
     model_config = SettingsConfigDict(
@@ -18,8 +20,8 @@ class StellaConfig(BaseSettings):
     # Caminho do vault Obsidian
     vault_path: Path
 
-    # Modelo padrão: "gemma" | "sonnet"
-    modelo_padrao: str = "gemma"
+    # Modelo padrão
+    modelo_padrao: ModeloIA = ModeloIA.GEMMA
 
     # Teto de orçamento mensal em USD
     teto_mensal_usd: float = Field(default=100.0, gt=0)
