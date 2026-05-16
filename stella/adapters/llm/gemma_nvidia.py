@@ -1,3 +1,5 @@
+from typing import Any
+
 from openai import OpenAI
 
 from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
@@ -12,7 +14,7 @@ class GemmaNvidiaProvider(LLMProvider):
     O parâmetro `client` permite injetar um dublê nos testes.
     """
 
-    def __init__(self, api_key: str, client=None):
+    def __init__(self, api_key: str, client: Any = None) -> None:
         self._client = client or OpenAI(
             base_url=_NVIDIA_BASE_URL,
             api_key=api_key,

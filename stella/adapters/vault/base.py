@@ -31,9 +31,7 @@ class VaultRepository(ABC):
         ...
 
     @abstractmethod
-    def write_note(
-        self, path: str, content: str, frontmatter: dict[str, Any]
-    ) -> None:
+    def write_note(self, path: str, content: str, frontmatter: dict[str, Any]) -> None:
         """Cria ou sobrescreve a nota no caminho. Cria pastas intermediárias."""
         ...
 

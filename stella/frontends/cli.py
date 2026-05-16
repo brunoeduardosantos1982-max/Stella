@@ -5,6 +5,4 @@ def main() -> None:
     para evitar que o entry point declarado em pyproject.toml falhe com
     ModuleNotFoundError.
     """
-    raise NotImplementedError(
-        "A CLI da Stella ainda não foi implementada. Veja o plano M2."
-    )
+    raise NotImplementedError("A CLI da Stella ainda não foi implementada. Veja o plano M2.")

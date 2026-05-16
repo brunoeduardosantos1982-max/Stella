@@ -70,10 +70,12 @@ def test_complete_usa_modelo_gemma():
 def test_chat_envia_mensagens_no_formato_correto():
     fake = _FakeOpenAIClient("resposta")
     provider = GemmaNvidiaProvider(api_key="nv-teste", client=fake)
-    provider.chat([
-        Message(role="system", content="você é a Stella"),
-        Message(role="user", content="oi"),
-    ])
+    provider.chat(
+        [
+            Message(role="system", content="você é a Stella"),
+            Message(role="user", content="oi"),
+        ]
+    )
     enviado = fake.chat.completions.ultima_chamada["messages"]
     assert enviado == [
         {"role": "system", "content": "você é a Stella"},

@@ -1,4 +1,4 @@
-from stella.domain.skill import Skill, OrigemSkill
+from stella.domain.skill import OrigemSkill, Skill
 
 
 def test_skill_estrutura():

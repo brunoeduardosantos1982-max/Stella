@@ -1,3 +1,5 @@
+from typing import Any
+
 from anthropic import Anthropic
 
 from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
@@ -13,7 +15,7 @@ class AnthropicProvider(LLMProvider):
     A API Anthropic trata `system` como parâmetro separado, não como mensagem.
     """
 
-    def __init__(self, api_key: str, client=None):
+    def __init__(self, api_key: str, client: Any = None) -> None:
         self._client = client or Anthropic(api_key=api_key)
 
     def complete(self, prompt: str) -> LLMResponse:
@@ -21,11 +23,7 @@ class AnthropicProvider(LLMProvider):
 
     def chat(self, messages: list[Message]) -> LLMResponse:
         system_parts = [m.content for m in messages if m.role == "system"]
-        conversa = [
-            {"role": m.role, "content": m.content}
-            for m in messages
-            if m.role != "system"
-        ]
+        conversa = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
         kwargs = {
             "model": _MODELO,
             "max_tokens": _MAX_TOKENS,

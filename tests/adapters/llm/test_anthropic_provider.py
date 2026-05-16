@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from stella.adapters.llm.base import Message
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
+from stella.adapters.llm.base import Message
 
 
 # --- Dublês do SDK Anthropic ---
@@ -60,10 +60,12 @@ def test_complete_usa_modelo_sonnet():
 def test_chat_separa_system_das_demais_mensagens():
     fake = _FakeAnthropicClient("resposta")
     provider = AnthropicProvider(api_key="ant-teste", client=fake)
-    provider.chat([
-        Message(role="system", content="você é a Stella"),
-        Message(role="user", content="oi"),
-    ])
+    provider.chat(
+        [
+            Message(role="system", content="você é a Stella"),
+            Message(role="user", content="oi"),
+        ]
+    )
     chamada = fake.messages.ultima_chamada
     assert chamada["system"] == "você é a Stella"
     assert chamada["messages"] == [{"role": "user", "content": "oi"}]

@@ -34,9 +34,7 @@ class ObsidianVaultRepository(VaultRepository):
             resultado.append(str(rel).replace("\\", "/"))
         return resultado
 
-    def write_note(
-        self, path: str, content: str, frontmatter: dict[str, Any]
-    ) -> None:
+    def write_note(self, path: str, content: str, frontmatter: dict[str, Any]) -> None:
         full = self._full_path(path)
         full.parent.mkdir(parents=True, exist_ok=True)
 
