@@ -1,9 +1,18 @@
 from datetime import datetime
 from typing import Any
 
+import anthropic as anthropic_sdk
 from anthropic import Anthropic
 
-from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
+from stella.adapters.llm.base import (
+    LLMAuthenticationError,
+    LLMProvider,
+    LLMProviderError,
+    LLMRateLimitError,
+    LLMResponse,
+    LLMUnavailableError,
+    Message,
+)
 from stella.infra.usage_tracker import UsageRecord, UsageTracker, estimar_custo
 
 _MODELO = "claude-sonnet-4-6"
@@ -40,7 +49,18 @@ class AnthropicProvider(LLMProvider):
         if system_parts:
             kwargs["system"] = "\n\n".join(system_parts)
 
-        resp = self._client.messages.create(**kwargs)
+        try:
+            resp = self._client.messages.create(**kwargs)
+        except anthropic_sdk.RateLimitError as e:
+            raise LLMRateLimitError(str(e)) from e
+        except anthropic_sdk.AuthenticationError as e:
+            raise LLMAuthenticationError(str(e)) from e
+        except anthropic_sdk.APIConnectionError as e:
+            raise LLMUnavailableError(str(e)) from e
+        except anthropic_sdk.APIStatusError as e:
+            raise LLMUnavailableError(f"{e.status_code}: {e.message}") from e
+        except Exception as e:
+            raise LLMProviderError(str(e)) from e
         result = LLMResponse(
             texto=resp.content[0].text,
             tokens_input=resp.usage.input_tokens,
