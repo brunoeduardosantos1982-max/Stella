@@ -16,7 +16,7 @@ from stella.adapters.llm.base import (
 from stella.infra.usage_tracker import UsageRecord, UsageTracker, estimar_custo
 
 _MODELO = "claude-sonnet-4-6"
-_MAX_TOKENS = 4096
+_MAX_TOKENS_DEFAULT = 4096
 
 
 class AnthropicProvider(LLMProvider):
@@ -30,9 +30,11 @@ class AnthropicProvider(LLMProvider):
         self,
         api_key: str,
         client: Any = None,
+        max_tokens: int = _MAX_TOKENS_DEFAULT,
         tracker: UsageTracker | None = None,
     ) -> None:
         self._client = client or Anthropic(api_key=api_key)
+        self._max_tokens = max_tokens
         self._tracker = tracker
 
     def complete(self, prompt: str) -> LLMResponse:
@@ -43,7 +45,7 @@ class AnthropicProvider(LLMProvider):
         conversa = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
         kwargs = {
             "model": _MODELO,
-            "max_tokens": _MAX_TOKENS,
+            "max_tokens": self._max_tokens,
             "messages": conversa,
         }
         if system_parts:

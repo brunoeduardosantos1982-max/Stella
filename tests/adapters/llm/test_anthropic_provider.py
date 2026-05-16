@@ -83,3 +83,17 @@ def test_provider_registra_uso_quando_tracker_passado(tmp_path):
     total = tracker.total_do_dia(_dt.now())
     assert total["chamadas"] == 1
     assert total["tokens_input"] == 20  # do _FakeUsage anthropic
+
+
+def test_max_tokens_default_4096() -> None:
+    fake = _FakeAnthropicClient()
+    provider = AnthropicProvider(api_key="ant", client=fake)
+    provider.complete("oi")
+    assert fake.messages.ultima_chamada["max_tokens"] == 4096
+
+
+def test_max_tokens_configuravel_via_init() -> None:
+    fake = _FakeAnthropicClient()
+    provider = AnthropicProvider(api_key="ant", client=fake, max_tokens=512)
+    provider.complete("oi")
+    assert fake.messages.ultima_chamada["max_tokens"] == 512
