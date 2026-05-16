@@ -6,10 +6,10 @@ Opt-in: por default NÃO rodam. Para rodar:
 Skip automático se chaves de API não estiverem no ambiente.
 """
 
-import os
 from datetime import datetime
 
 import pytest
+from pydantic import ValidationError
 
 from stella.app import build_stella
 from stella.infra.config import StellaConfig
@@ -20,13 +20,14 @@ pytestmark = pytest.mark.live
 
 
 def _check_env_ou_skip() -> None:
-    falta = [
-        v
-        for v in ("STELLA_NVIDIA_API_KEY", "STELLA_ANTHROPIC_API_KEY", "STELLA_VAULT_PATH")
-        if not os.getenv(v)
-    ]
-    if falta:
-        pytest.skip(f"E2E exige variáveis no ambiente: {falta}")
+    """Tenta carregar StellaConfig (respeita o .env do projeto).
+
+    Skip se faltarem credenciais — testes E2E só rodam se houver chaves reais.
+    """
+    try:
+        StellaConfig()
+    except ValidationError as e:
+        pytest.skip(f"E2E exige .env configurado com chaves reais: {e}")
 
 
 def test_e2e_captura_real(vault_tmp, monkeypatch) -> None:
