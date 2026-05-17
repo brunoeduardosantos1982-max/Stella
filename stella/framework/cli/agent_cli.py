@@ -43,3 +43,34 @@ def list_agents(agents_dir: _AgentsDirOpt = _DEFAULT_AGENTS_DIR) -> None:
 
     for m in manifests:
         typer.echo(f"  {m.nome:35} {m.tipo:12} setor={m.setor:15} ({m.execucao})")
+
+
+@agent_app.command("show")
+def show_agent(
+    nome: Annotated[str, typer.Argument(help="Nome do agente")],
+    agents_dir: _AgentsDirOpt = _DEFAULT_AGENTS_DIR,
+) -> None:
+    """Mostra detalhes do manifest de um agente."""
+    registry = AgentRegistry(agents_dir)
+    manifests = {m.nome: m for m in registry.list_manifests()}
+    if nome not in manifests:
+        typer.echo(f"Agente '{nome}' nao encontrado em {agents_dir}.", err=True)
+        raise typer.Exit(code=1)
+
+    m = manifests[nome]
+    typer.echo(f"Nome:           {m.nome}")
+    typer.echo(f"Tipo:           {m.tipo}")
+    typer.echo(f"Setor:          {m.setor}")
+    typer.echo(f"Execucao:       {m.execucao}")
+    typer.echo(f"Modelo minimo:  {m.modelo_minimo.value}")
+    if m.endpoint:
+        typer.echo(f"Endpoint:       {m.endpoint}")
+    typer.echo(f"Vault scope:    {m.vault_scope}")
+    typer.echo(f"Descricao:      {m.descricao}")
+    typer.echo(f"Quando usar:    {m.quando_usar}")
+    typer.echo(f"Inputs:         {', '.join(m.inputs_obrigatorios) or '(nenhum)'}")
+    typer.echo(f"Skills:         {', '.join(m.capacidades_externas.skills) or '(nenhuma)'}")
+    typer.echo(f"MCPs:           {', '.join(m.capacidades_externas.mcps) or '(nenhuma)'}")
+    typer.echo(f"RAG:            {m.capacidades_externas.rag or '(nenhum)'}")
+    if m.especialistas:
+        typer.echo(f"Especialistas:  {', '.join(m.especialistas)}")

@@ -66,3 +66,24 @@ def test_agent_list_mostra_tipo_e_setor(tmp_path: Path) -> None:
     result = runner.invoke(agent_app, ["list", "--agents-dir", str(tmp_path)])
     assert "coordenador" in result.stdout
     assert "testes" in result.stdout
+
+
+def test_agent_show_mostra_manifest_completo(tmp_path: Path) -> None:
+    _escrever(tmp_path, "agente_a", _MANIFEST_A)
+    result = runner.invoke(agent_app, ["show", "agente_a", "--agents-dir", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "agente_a" in result.stdout
+    assert "especialista" in result.stdout
+    assert "agente alpha para testes" in result.stdout
+    assert "in_process" in result.stdout
+
+
+def test_agent_show_http_mostra_endpoint(tmp_path: Path) -> None:
+    _escrever(tmp_path, "coord_b", _MANIFEST_B)
+    result = runner.invoke(agent_app, ["show", "coord_b", "--agents-dir", str(tmp_path)])
+    assert "http://localhost:9000" in result.stdout
+
+
+def test_agent_show_nome_inexistente_devolve_erro(tmp_path: Path) -> None:
+    result = runner.invoke(agent_app, ["show", "nao-existe", "--agents-dir", str(tmp_path)])
+    assert result.exit_code != 0
