@@ -68,3 +68,9 @@ class ObsidianVaultRepository(VaultRepository):
             rel = str(arquivo.relative_to(self._root)).replace("\\", "/")
             resultado.append(self.read_note(rel))
         return resultado
+
+    def scoped(self, pattern: str) -> "VaultRepository":
+        # Import local para evitar ciclo na carga do modulo
+        from stella.adapters.vault.scoped import ScopedVaultRepository
+
+        return ScopedVaultRepository(self, pattern)

@@ -146,3 +146,30 @@ def test_build_agent_modulo_inexistente_levanta_import_error(
     m = _manifest("modulo_que_nao_existe_no_python")
     with pytest.raises(ImportError):
         build_agent(m, deps)
+
+
+def test_build_agent_injeta_vault_com_scope_aplicado(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """build_agent passa vault.scoped(manifest.vault_scope) — agente isolado."""
+    from stella.adapters.vault.scoped import ScopedVaultRepository
+
+    _instalar_agente_no_modulo(monkeypatch, "agente_isolado")
+    deps = _deps_para_teste(tmp_path)
+    m = AgentManifest(
+        nome="agente_isolado",
+        tipo="especialista",
+        setor="testes",
+        descricao="agente para testar isolamento vault",
+        execucao="in_process",
+        modelo_minimo="gemma",
+        inputs_obrigatorios=[],
+        exemplo_uso={},
+        quando_usar="apenas para testar scope do vault",
+        capacidades_externas=CapacidadesExternas(),
+        vault_scope="C04 Claude Obsidian/Stella-workspace/testes/**",
+    )
+    agent = build_agent(m, deps)
+    assert isinstance(agent._vault, ScopedVaultRepository)
+    with pytest.raises(PermissionError):
+        agent._vault.note_exists("fora/do/escopo.md")

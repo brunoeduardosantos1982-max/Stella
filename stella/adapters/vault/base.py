@@ -68,3 +68,13 @@ class VaultRepository(ABC):
         Retorna `[]` se nada bater no pattern.
         """
         ...
+
+    @abstractmethod
+    def scoped(self, pattern: str) -> "VaultRepository":
+        """Devolve um proxy do vault limitado ao glob `pattern`.
+
+        Qualquer operacao em path que nao bate com `pattern` levanta
+        PermissionError. Usado pelo builder para isolar cada agente ao
+        escopo declarado em seu manifest (manifest.vault_scope).
+        """
+        ...

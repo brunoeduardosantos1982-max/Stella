@@ -66,9 +66,10 @@ def build_agent(manifest: AgentManifest, deps: FrameworkDeps) -> Agent:
     modulo = import_module(f"stella.agents.{manifest.nome}")
     cls: type[Agent] = modulo.Agent
 
+    vault_scoped = deps.vault.scoped(manifest.vault_scope)
     return cls(
         manifest=manifest,
-        vault=deps.vault,
+        vault=vault_scoped,
         llm=deps.llm,
         skills=list(skills),
         mcps=list(mcps),
