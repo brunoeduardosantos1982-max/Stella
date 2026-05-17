@@ -53,6 +53,34 @@ def test_delegate_to_sem_registry_levanta_erro() -> None:
         a.delegate_to("outro_agente", {"x": 1})
 
 
+def test_delegate_to_com_registry_chama_execute_do_agente_alvo() -> None:
+    """delegate_to resolve agent_name via registry e chama execute()."""
+    from stella.framework.client import InProcessClient
+    from stella.framework.manifest import CapacidadesExternas
+
+    m_alvo = AgentManifest(
+        nome="alvo",
+        tipo="especialista",
+        setor="testes",
+        descricao="agente alvo da delegacao",
+        execucao="in_process",
+        modelo_minimo="gemma",
+        inputs_obrigatorios=[],
+        exemplo_uso={},
+        quando_usar="testes do delegate_to real",
+        capacidades_externas=CapacidadesExternas(),
+    )
+
+    class _RegistryFake:
+        def get(self, nome: str):
+            assert nome == "alvo"
+            return InProcessClient(agent=_AgenteFake(), manifest=m_alvo)
+
+    a = _AgenteFake(registry=_RegistryFake())
+    out = a.delegate_to("alvo", {"x": 1})
+    assert out.resultado == {"echo": {"x": 1}}
+
+
 def test_delegate_to_depth_padrao_levanta_quando_passar_de_5() -> None:
     """O depth control DEVE proteger contra loops infinitos."""
     a = _AgenteFake()

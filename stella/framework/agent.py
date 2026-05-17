@@ -135,6 +135,9 @@ class Agent(ABC):
                 "FB-M2 implementa a injeção via build_agent()."
             )
 
-        # FB-M2 vai chamar self._registry.get(agent_name).execute(payload, _depth=_depth+1)
-        # Por enquanto, o caminho com registry presente fica para FB-M2.
-        raise RuntimeError("delegate_to com registry — implementação em FB-M2")
+        # Resolve via registry e invoca execute() no AgentClient retornado.
+        # Limitacao FB-M2: depth e local. Cross-agent loop detection ficou
+        # adiada (precisaria contextvars ou alterar assinatura de
+        # AgentClient.execute). Documentado em PLANO FB-M2 Task 8.
+        cliente = self._registry.get(agent_name)  # type: ignore[attr-defined]
+        return cliente.execute(payload)  # type: ignore[no-any-return]
