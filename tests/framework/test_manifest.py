@@ -1,10 +1,12 @@
+from pathlib import Path
 from typing import Any
 
 import pytest
 from pydantic import ValidationError
 
 from stella.domain.enums import ModeloIA
-from stella.framework.manifest import AgentManifest, CapacidadesExternas
+from stella.framework.errors import ManifestError
+from stella.framework.manifest import AgentManifest, CapacidadesExternas, load_manifest
 
 
 def test_capacidades_externas_padrao_vazio() -> None:
@@ -90,3 +92,60 @@ def test_manifest_sem_descricao_levanta_validation_error() -> None:
     del payload["descricao"]
     with pytest.raises(ValidationError):
         AgentManifest(**payload)
+
+
+_MANIFEST_VALIDO_YAML = """
+nome: agente_copy
+tipo: especialista
+setor: marketing
+descricao: Escreve copy de marketing para anúncios e landing pages.
+execucao: in_process
+modelo_minimo: gemma
+inputs_obrigatorios:
+  - brief
+  - publico_alvo
+exemplo_uso:
+  brief: "lançamento curso X"
+  publico_alvo: "empreendedores"
+quando_usar: tarefas envolvendo criar ou revisar texto promocional
+capacidades_externas:
+  skills: [marketing-copy-pt-br]
+  mcps: [brave-search]
+vault_scope: "C04 Claude Obsidian/Stella-workspace/marketing/**"
+"""
+
+
+def test_load_manifest_arquivo_valido(tmp_path: Path) -> None:
+    p = tmp_path / "manifest.yaml"
+    p.write_text(_MANIFEST_VALIDO_YAML, encoding="utf-8")
+
+    m = load_manifest(p)
+
+    assert m.nome == "agente_copy"
+    assert "brave-search" in m.capacidades_externas.mcps
+
+
+def test_load_manifest_yaml_malformado_levanta_manifest_error(tmp_path: Path) -> None:
+    p = tmp_path / "manifest.yaml"
+    p.write_text("nome: [não fecha colchete", encoding="utf-8")
+
+    with pytest.raises(ManifestError, match="YAML"):
+        load_manifest(p)
+
+
+def test_load_manifest_arquivo_inexistente_levanta_manifest_error(tmp_path: Path) -> None:
+    p = tmp_path / "nao-existe.yaml"
+    with pytest.raises(ManifestError, match="não encontrado"):
+        load_manifest(p)
+
+
+def test_load_manifest_campo_obrigatorio_faltando_levanta_manifest_error(
+    tmp_path: Path,
+) -> None:
+    p = tmp_path / "manifest.yaml"
+    p.write_text(
+        "nome: agente_x\ntipo: especialista\nsetor: x\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ManifestError, match="campo"):
+        load_manifest(p)

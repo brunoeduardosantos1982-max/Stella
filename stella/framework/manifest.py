@@ -8,11 +8,14 @@ não puder ser resolvida.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+import yaml
+from pydantic import BaseModel, Field, ValidationError
 
 from stella.domain.enums import ModeloIA
+from stella.framework.errors import ManifestError
 
 
 class CapacidadesExternas(BaseModel):
@@ -60,3 +63,32 @@ class AgentManifest(BaseModel):
 
     # HTTP-only: endpoint do servidor remoto
     endpoint: str | None = None
+
+
+def load_manifest(path: Path) -> AgentManifest:
+    """Carrega e valida um manifest.yaml.
+
+    Levanta ManifestError com mensagem clara em qualquer falha:
+    - Arquivo não existe
+    - YAML malformado
+    - Validação pydantic falha (campo faltando, tipo inválido, etc)
+    """
+    if not path.exists():
+        raise ManifestError(f"Manifest não encontrado em: {path}")
+
+    try:
+        dados = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as e:
+        raise ManifestError(f"YAML malformado em {path}: {e}") from e
+
+    if not isinstance(dados, dict):
+        raise ManifestError(
+            f"Manifest em {path} deve ser um objeto YAML (dict), não {type(dados).__name__}"
+        )
+
+    try:
+        return AgentManifest(**dados)
+    except ValidationError as e:
+        raise ManifestError(
+            f"Manifest inválido em {path}: campo ou valor não atende ao schema. " f"Detalhe: {e}"
+        ) from e
