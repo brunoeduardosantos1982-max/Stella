@@ -1,4 +1,5 @@
 from stella.adapters.llm.base import LLMProvider
+from stella.domain.enums import ModeloIA
 
 
 class LLMRouter:
@@ -31,3 +32,30 @@ class LLMRouter:
         if complexity == "high":
             return self._anthropic
         return self._gemma if self._default == "gemma" else self._anthropic
+
+    def with_minimum(self, modelo_minimo: ModeloIA) -> "LLMRouter":
+        """Devolve um proxy que forca minimo de modelo nas chamadas.
+
+        Se minimo == GEMMA: comportamento identico ao router base.
+        Se minimo == SONNET ou OPUS: select() sempre devolve Anthropic
+            (OPUS escala para Sonnet ate adapter dedicado existir).
+        """
+        return _LLMRouterComMinimo(self, modelo_minimo)
+
+
+class _LLMRouterComMinimo(LLMRouter):
+    """Proxy de LLMRouter que aplica floor de modelo."""
+
+    def __init__(self, base: LLMRouter, minimo: ModeloIA) -> None:
+        super().__init__(gemma=base._gemma, anthropic=base._anthropic, default=base._default)
+        self._minimo = minimo
+
+    def select(
+        self,
+        complexity: str = "low",
+        force: str | None = None,
+        usa_skill_ou_mcp: bool = False,
+    ) -> LLMProvider:
+        if self._minimo in (ModeloIA.SONNET, ModeloIA.OPUS):
+            return self._anthropic
+        return super().select(complexity=complexity, force=force, usa_skill_ou_mcp=usa_skill_ou_mcp)
