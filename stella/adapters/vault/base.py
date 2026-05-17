@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 
@@ -53,4 +54,17 @@ class VaultRepository(ABC):
     @abstractmethod
     def note_exists(self, path: str) -> bool:
         """Retorna True se a nota existe no caminho dado."""
+        ...
+
+    @abstractmethod
+    def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
+        """Varredura recursiva por glob pattern. HOOK Sub-projeto H.
+
+        Args:
+            pattern: glob relativo a raiz do vault, ex: "A04 **/*.md".
+            since: se fornecido, filtra notas com mtime >= since.
+
+        Retorna lista de `Note` totalmente carregadas (frontmatter + content).
+        Retorna `[]` se nada bater no pattern.
+        """
         ...

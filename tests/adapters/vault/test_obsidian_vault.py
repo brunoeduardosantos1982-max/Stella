@@ -101,3 +101,45 @@ def test_update_frontmatter_nota_inexistente_levanta_erro(vault_tmp):
     repo = ObsidianVaultRepository(vault_root=vault_tmp)
     with pytest.raises(FileNotFoundError):
         repo.update_frontmatter("B01 Projetos/fantasma.md", {"x": 1})
+
+
+def test_scan_recursive_encontra_notas_via_glob(tmp_path) -> None:
+    """HOOK Sub-projeto H: scan recursivo respeitando glob."""
+    (tmp_path / "A04" / "sub").mkdir(parents=True)
+    (tmp_path / "A04" / "n1.md").write_text("---\nt: 1\n---\nhello", encoding="utf-8")
+    (tmp_path / "A04" / "sub" / "n2.md").write_text("---\nt: 2\n---\nworld", encoding="utf-8")
+    (tmp_path / "B01" / "outro").mkdir(parents=True)
+    (tmp_path / "B01" / "outro" / "n3.md").write_text("---\nt: 3\n---\nfora", encoding="utf-8")
+
+    repo = ObsidianVaultRepository(tmp_path)
+    notas = repo.scan_recursive("A04/**/*.md")
+    paths = {n.path for n in notas}
+    assert paths == {"A04/n1.md", "A04/sub/n2.md"}
+
+
+def test_scan_recursive_filtra_por_since(tmp_path) -> None:
+    """`since` filtra por mtime — apenas notas modificadas a partir do timestamp."""
+    import os
+    import time
+    from datetime import datetime, timedelta
+
+    pasta = tmp_path / "A04"
+    pasta.mkdir()
+    antiga = pasta / "antiga.md"
+    nova = pasta / "nova.md"
+    antiga.write_text("---\nt: a\n---\n", encoding="utf-8")
+    nova.write_text("---\nt: n\n---\n", encoding="utf-8")
+
+    uma_hora_atras = time.time() - 3600
+    os.utime(antiga, (uma_hora_atras, uma_hora_atras))
+
+    repo = ObsidianVaultRepository(tmp_path)
+    corte = datetime.now() - timedelta(minutes=30)
+    notas = repo.scan_recursive("A04/**/*.md", since=corte)
+    paths = {n.path for n in notas}
+    assert paths == {"A04/nova.md"}
+
+
+def test_scan_recursive_vazio_quando_nada_bate(tmp_path) -> None:
+    repo = ObsidianVaultRepository(tmp_path)
+    assert repo.scan_recursive("nao-existe/**/*.md") == []

@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -54,3 +55,16 @@ class ObsidianVaultRepository(VaultRepository):
     def note_exists(self, path: str) -> bool:
         # is_file() em vez de exists() para distinguir nota de diretório homônimo
         return self._full_path(path).is_file()
+
+    def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
+        cutoff = since.timestamp() if since is not None else None
+
+        resultado: list[Note] = []
+        for arquivo in sorted(self._root.glob(pattern)):
+            if not arquivo.is_file() or arquivo.suffix != ".md":
+                continue
+            if cutoff is not None and arquivo.stat().st_mtime < cutoff:
+                continue
+            rel = str(arquivo.relative_to(self._root)).replace("\\", "/")
+            resultado.append(self.read_note(rel))
+        return resultado
