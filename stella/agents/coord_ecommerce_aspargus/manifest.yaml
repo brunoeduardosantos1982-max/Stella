@@ -1,0 +1,21 @@
+nome: coord_ecommerce_aspargus
+tipo: coordenador
+setor: ecommerce
+descricao: "Adapter HTTP para o sistema Aspargus (D:\\VortexBrain00\\aspargus-agents). Coordena Garimpador, Sourcing, ADS e demais agentes Amazon. Stella delega tarefas de e-commerce aqui."
+execucao: http
+endpoint: "http://localhost:8000"
+modelo_minimo: sonnet
+
+inputs_obrigatorios: [acao]
+exemplo_uso:
+  acao: "analise_margem_semanal"
+quando_usar: "qualquer tarefa relacionada a Amazon, Aspargus Store, sourcing, garimpo de produtos"
+
+capacidades_externas:
+  skills: []
+  mcps: []
+  rag: null
+
+vault_scope: "C04 Claude Obsidian/outputs/coord_ecommerce/**"
+
+especialistas: []
