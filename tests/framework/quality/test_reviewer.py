@@ -1,7 +1,13 @@
+import json
+from pathlib import Path
+
+from stella.adapters.llm.router import LLMRouter
 from stella.framework.agent import AgentOutput
 from stella.framework.manifest import AgentManifest, CapacidadesExternas
 from stella.framework.quality.policies import ReviewPolicy
 from stella.framework.quality.reviewer import QualityReviewer, ReviewResult
+from stella.framework.resources.skills_registry import SkillsRegistry
+from stella.framework.testing.fakes import FakeLLM, FakeVault
 
 
 def _manifest(tipo: str = "especialista", setor: str = "operacional") -> AgentManifest:
@@ -57,3 +63,102 @@ def test_reviewer_pula_revisao_com_skip_review_explicito() -> None:
         agent_manifest=manifest,
     )
     assert result.veredicto == "aprovado"
+
+
+def _reviewer_real(
+    llm_responses: list[str],
+    vault_notes: dict | None = None,
+    skills_dir: Path | None = None,
+) -> QualityReviewer:
+    fake_llm = FakeLLM(responses=llm_responses)
+    router = LLMRouter(gemma=fake_llm, anthropic=fake_llm, default="gemma")
+    return QualityReviewer(
+        llm=router,
+        vault=FakeVault(notes=vault_notes or {}),
+        skills_reg=SkillsRegistry(
+            skills_dir if skills_dir else Path("/tmp/skills_inexistente_path")
+        ),
+        policy=ReviewPolicy(),
+    )
+
+
+def test_reviewer_chama_llm_quando_policy_diz_revisar(tmp_path: Path) -> None:
+    """Coordenador: policy revisa, LLM (FakeLLM) devolve aprovado."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    reviewer = _reviewer_real(
+        llm_responses=[json.dumps({"veredicto": "aprovado", "feedback": "ok"})],
+        skills_dir=skills_dir,
+    )
+    out = AgentOutput(resultado={"resultado": "x"})
+    result = reviewer.review({}, out, _manifest(tipo="coordenador"))
+    assert result.veredicto == "aprovado"
+    assert result.feedback == "ok"
+
+
+def test_reviewer_passa_refazer_quando_llm_devolve_refazer(tmp_path: Path) -> None:
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    reviewer = _reviewer_real(
+        llm_responses=[json.dumps({"veredicto": "refazer", "feedback": "tom errado"})],
+        skills_dir=skills_dir,
+    )
+    out = AgentOutput(resultado={"copy": "..."})
+    result = reviewer.review({}, out, _manifest(tipo="coordenador"), tentativa=1)
+    assert result.veredicto == "refazer"
+    assert "tom errado" in result.feedback
+
+
+def test_reviewer_resposta_llm_malformada_devolve_rejeitar_seguro(tmp_path: Path) -> None:
+    """JSON malformado -> rejeitar (NAO crasha)."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    reviewer = _reviewer_real(
+        llm_responses=["isto nao e JSON valido"],
+        skills_dir=skills_dir,
+    )
+    out = AgentOutput(resultado={})
+    result = reviewer.review({}, out, _manifest(tipo="coordenador"))
+    assert result.veredicto == "rejeitar"
+    assert "parsear" in result.feedback.lower() or "valido" in result.feedback.lower()
+
+
+def test_reviewer_le_padrao_do_setor_quando_existe(tmp_path: Path) -> None:
+    """Reviewer le C04/Padroes/<setor>.md se existir, inclui no contexto."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    vault_notes = {
+        "C04 Claude Obsidian/Padrões/copy.md": ("REGRA: evitar superlativos", {"tipo": "padrao"}),
+    }
+    fake_llm = FakeLLM(responses=[json.dumps({"veredicto": "aprovado", "feedback": "ok"})])
+    router = LLMRouter(gemma=fake_llm, anthropic=fake_llm, default="gemma")
+    reviewer = QualityReviewer(
+        llm=router,
+        vault=FakeVault(notes=vault_notes),
+        skills_reg=SkillsRegistry(skills_dir),
+        policy=ReviewPolicy(),
+    )
+    reviewer.review({}, AgentOutput(resultado={"copy": "x"}), _manifest(setor="copy"))
+    assert "evitar superlativos" in fake_llm.calls[0]
+
+
+def test_reviewer_le_aprendizados_quando_existe(tmp_path: Path) -> None:
+    """Reviewer le C04/Padroes/_aprendizados.md se existir, inclui no contexto."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    vault_notes = {
+        "C04 Claude Obsidian/Padrões/_aprendizados.md": (
+            "### 2026-05-01 — copy: nada de 'incrivel'",
+            {"tipo": "aprendizados"},
+        ),
+    }
+    fake_llm = FakeLLM(responses=[json.dumps({"veredicto": "aprovado", "feedback": "ok"})])
+    router = LLMRouter(gemma=fake_llm, anthropic=fake_llm, default="gemma")
+    reviewer = QualityReviewer(
+        llm=router,
+        vault=FakeVault(notes=vault_notes),
+        skills_reg=SkillsRegistry(skills_dir),
+        policy=ReviewPolicy(),
+    )
+    reviewer.review({}, AgentOutput(resultado={"x": 1}), _manifest(setor="copy"))
+    assert "incrivel" in fake_llm.calls[0]

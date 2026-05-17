@@ -8,14 +8,21 @@ Esta classe orquestra a revisao de qualidade. Decisoes:
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
+from stella.adapters.llm.router import LLMRouter
+from stella.adapters.vault.base import VaultRepository
+from stella.domain.enums import ModeloIA
 from stella.framework.agent import AgentOutput
 from stella.framework.manifest import AgentManifest
 from stella.framework.quality.policies import ReviewPolicy
+from stella.framework.resources.skills_registry import SkillsRegistry
 
 Veredicto = Literal["aprovado", "refazer", "aceitar_com_aviso", "rejeitar"]
+
+_PADRAO_PATH_TEMPLATE = "C04 Claude Obsidian/Padrões/{nome}.md"
 
 
 @dataclass
@@ -36,22 +43,15 @@ class ReviewResult:
 
 
 class QualityReviewer:
-    """Aplica revisao de qualidade no output de cada agente.
-
-    FB-M3 Task 8 entrega caminho base (policy diz nao -> aprovado).
-    FB-M3 Task 9 adiciona caminho com LLM (Sonnet avalia output).
-    FB-M3 Task 10 adiciona loop retry (Q2=E).
-    """
+    """Aplica revisao de qualidade no output de cada agente."""
 
     def __init__(
         self,
-        llm: object | None,
-        vault: object | None,
-        skills_reg: object | None,
+        llm: LLMRouter | None,
+        vault: VaultRepository | None,
+        skills_reg: SkillsRegistry | None,
         policy: ReviewPolicy,
     ) -> None:
-        # Tipos object|None aqui por simetria com Agent.__init__ — Task 16
-        # estreita estes tipos quando consolidarmos a API publica.
         self._llm = llm
         self._vault = vault
         self._skills_reg = skills_reg
@@ -71,9 +71,72 @@ class QualityReviewer:
                 output_final=output,
             )
 
-        # Caminho com LLM entra em Task 9. Por enquanto: aprova com nota.
-        return ReviewResult(
-            veredicto="aprovado",
-            feedback="caminho LLM pendente (Task 9 do FB-M3)",
-            output_final=output,
+        veredicto, feedback = self._avaliar_via_llm(input_original, output, agent_manifest)
+        return ReviewResult(veredicto=veredicto, feedback=feedback, output_final=output)
+
+    def _avaliar_via_llm(
+        self,
+        input_original: dict[str, Any],
+        output: AgentOutput,
+        manifest: AgentManifest,
+    ) -> tuple[Veredicto, str]:
+        if self._llm is None:
+            return ("rejeitar", "LLM nao configurado no QualityReviewer")
+
+        padrao = self._read_opcional(_PADRAO_PATH_TEMPLATE.format(nome=manifest.setor))
+        aprendizados = self._read_opcional(_PADRAO_PATH_TEMPLATE.format(nome="_aprendizados"))
+
+        prompt = self._montar_prompt(
+            input_original=input_original,
+            output=output,
+            manifest=manifest,
+            padrao=padrao,
+            aprendizados=aprendizados,
         )
+
+        provider = self._llm.with_minimum(ModeloIA.SONNET).select(complexity="high")
+        resposta = provider.complete(prompt)
+        return self._parsear_resposta(resposta.texto)
+
+    def _read_opcional(self, path: str) -> str:
+        if self._vault is None:
+            return ""
+        try:
+            return self._vault.read_note(path).content
+        except (FileNotFoundError, PermissionError):
+            return ""
+
+    def _montar_prompt(
+        self,
+        input_original: dict[str, Any],
+        output: AgentOutput,
+        manifest: AgentManifest,
+        padrao: str,
+        aprendizados: str,
+    ) -> str:
+        return (
+            "Voce e a Stella, supervisora de qualidade de agentes especialistas.\n"
+            f"Agente: {manifest.nome} ({manifest.tipo}, setor {manifest.setor})\n\n"
+            f"Input original do Bruno:\n{json.dumps(input_original, ensure_ascii=False)}\n\n"
+            f"Output do agente:\n{json.dumps(output.resultado, ensure_ascii=False)}\n\n"
+            f"Padrao do setor (C04/Padroes/{manifest.setor}.md):\n{padrao or '(nao declarado)'}\n\n"
+            f"Aprendizados acumulados:\n{aprendizados or '(nenhum)'}\n\n"
+            "Avalie e responda APENAS com um JSON valido no formato:\n"
+            '{"veredicto": "aprovado|refazer|aceitar_com_aviso|rejeitar", "feedback": "explicacao em PT-BR"}'
+        )
+
+    def _parsear_resposta(self, texto: str) -> tuple[Veredicto, str]:
+        try:
+            dados = json.loads(texto)
+        except (json.JSONDecodeError, ValueError):
+            return ("rejeitar", f"Resposta do LLM nao foi JSON valido: {texto[:200]}")
+
+        veredicto_str = dados.get("veredicto", "")
+        feedback = str(dados.get("feedback", ""))
+        veredictos_validos = get_args(Veredicto)
+        if veredicto_str not in veredictos_validos:
+            return (
+                "rejeitar",
+                f"Veredicto invalido '{veredicto_str}' (esperado {veredictos_validos})",
+            )
+        return (veredicto_str, feedback)
