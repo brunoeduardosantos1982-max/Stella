@@ -17,3 +17,4 @@ class ConexaoMCP:
     status: StatusMCP = StatusMCP.POR_DEMANDA
     ferramentas_expostas: list[str] = field(default_factory=list)
     requer_modelo: ModeloIA = ModeloIA.SONNET
+    category: str | None = None  # hook Sub-projeto F: 'research', 'automation', 'data', etc

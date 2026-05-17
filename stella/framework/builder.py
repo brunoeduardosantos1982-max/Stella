@@ -1,0 +1,80 @@
+"""FrameworkDeps + build_agent — fabrica agentes com DI a partir do manifest.
+
+build_agent resolve recursos via registries (skills/mcps/rag) e importa a
+classe Agent do modulo stella.agents.<nome> (convencao: o __init__.py do
+agente expoe `Agent` apontando para a classe concreta).
+
+Limitacoes conhecidas de FB-M2 (Design previa, mas adiamos):
+- llm.with_minimum(modelo): builder passa llm sem floor de modelo. Sera
+  endurecido em milestone futuro.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from importlib import import_module
+
+from stella.adapters.vault.base import VaultRepository
+from stella.framework.agent import Agent
+from stella.framework.manifest import AgentManifest
+from stella.framework.registry import AgentRegistry
+from stella.framework.resources.mcp_registry import MCPRegistry
+from stella.framework.resources.rag_registry import RAGRegistry
+from stella.framework.resources.skills_registry import SkillsRegistry
+
+
+@dataclass
+class FrameworkDeps:
+    """Dependencias globais do framework. Construidas uma vez na startup.
+
+    `registry` e referencia (nao o objeto final) — bind_builder e chamado
+    APOS construir as deps para evitar ciclo Registry -> Builder -> Registry.
+    """
+
+    vault: VaultRepository
+    llm: object | None
+    skills_reg: SkillsRegistry
+    mcp_reg: MCPRegistry
+    rag_reg: RAGRegistry
+    tracker: object | None
+    logger: object | None
+    registry: AgentRegistry
+
+
+def build_agent(manifest: AgentManifest, deps: FrameworkDeps) -> Agent:
+    """Constroi um agente in-process a partir do manifest e das deps globais.
+
+    Passos:
+    1. Resolve skills declaradas via SkillsRegistry (erra se faltar).
+    2. Resolve MCPs declaradas via MCPRegistry (erra se faltar).
+    3. Resolve RAG (se declarado) via RAGRegistry (erra se faltar).
+    4. Importa stella.agents.<manifest.nome>.Agent via importlib.
+    5. Instancia com todas as deps injetadas via kwargs.
+
+    Raises:
+        SkillNotFoundError | MCPNotFoundError | RAGNotFoundError: capacidade
+            declarada no manifest nao esta registrada.
+        ImportError: pasta stella/agents/<nome>/ nao existe ou nao exporta
+            a classe Agent no __init__.py.
+        AttributeError: __init__.py do agente nao expoe atributo `Agent`.
+    """
+    cap = manifest.capacidades_externas
+    skills = [deps.skills_reg.get(sid) for sid in cap.skills]
+    mcps = [deps.mcp_reg.get(nome) for nome in cap.mcps]
+    rag = deps.rag_reg.get(cap.rag) if cap.rag else None
+
+    modulo = import_module(f"stella.agents.{manifest.nome}")
+    cls: type[Agent] = modulo.Agent
+
+    vault_scoped = deps.vault.scoped(manifest.vault_scope)
+    return cls(
+        manifest=manifest,
+        vault=vault_scoped,
+        llm=deps.llm,
+        skills=list(skills),
+        mcps=list(mcps),
+        rag=rag,
+        tracker=deps.tracker,
+        logger=deps.logger,
+        registry=deps.registry,
+    )
