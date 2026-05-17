@@ -10,6 +10,7 @@ from datetime import datetime
 from fnmatch import fnmatchcase
 from typing import Any
 
+from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
 from stella.adapters.vault.base import Note, VaultRepository
 
 
@@ -77,6 +78,41 @@ class FakeVault(VaultRepository):
         from stella.adapters.vault.scoped import ScopedVaultRepository
 
         return ScopedVaultRepository(self, pattern)
+
+
+class FakeLLM(LLMProvider):
+    """LLMProvider in-memory para testes.
+
+    Construido com lista opcional de respostas. Cada chamada (complete/chat)
+    consome a proxima resposta. Sem responses configuradas, devolve texto
+    default. Quando responses configuradas esgotam, levanta RuntimeError
+    (protege testes de assumir comportamento que nao foi declarado).
+
+    Atributo publico `calls` lista os prompts/messages recebidos (para
+    asserts em testes).
+    """
+
+    def __init__(self, responses: list[str] | None = None) -> None:
+        self._responses = list(responses) if responses else None
+        self.calls: list[str] = []
+
+    def _proxima_resposta(self) -> str:
+        if self._responses is None:
+            return "[FakeLLM] resposta default (sem responses configuradas)"
+        if not self._responses:
+            raise RuntimeError(
+                "FakeLLM esgotou as responses configuradas — adicione mais ou nao configure responses"
+            )
+        return self._responses.pop(0)
+
+    def complete(self, prompt: str) -> LLMResponse:
+        self.calls.append(prompt)
+        return LLMResponse(texto=self._proxima_resposta(), tokens_input=10, tokens_output=20)
+
+    def chat(self, messages: list[Message]) -> LLMResponse:
+        prompt = "\n".join(f"[{m.role}] {m.content}" for m in messages)
+        self.calls.append(prompt)
+        return LLMResponse(texto=self._proxima_resposta(), tokens_input=10, tokens_output=20)
 
 
 def _fake_glob_match(path: str, pattern: str) -> bool:

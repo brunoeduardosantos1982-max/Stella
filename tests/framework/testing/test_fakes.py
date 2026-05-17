@@ -97,3 +97,50 @@ def test_fake_vault_scoped_aplica_isolamento() -> None:
     assert scoped.note_exists("marketing/copy.md") is True
     with pytest.raises(PermissionError):
         scoped.note_exists("financeiro/x.md")
+
+
+def test_fake_llm_devolve_respostas_pre_determinadas_em_ordem() -> None:
+    from stella.framework.testing.fakes import FakeLLM
+
+    llm = FakeLLM(responses=["primeira", "segunda", "terceira"])
+    assert llm.complete("p1").texto == "primeira"
+    assert llm.complete("p2").texto == "segunda"
+    assert llm.complete("p3").texto == "terceira"
+
+
+def test_fake_llm_sem_respostas_devolve_default() -> None:
+    from stella.framework.testing.fakes import FakeLLM
+
+    llm = FakeLLM()
+    resp = llm.complete("oi")
+    assert "fake" in resp.texto.lower()
+
+
+def test_fake_llm_registra_chamadas() -> None:
+    from stella.framework.testing.fakes import FakeLLM
+
+    llm = FakeLLM(responses=["x"])
+    llm.complete("primeiro prompt")
+    assert len(llm.calls) == 1
+    assert llm.calls[0] == "primeiro prompt"
+
+
+def test_fake_llm_chat_usa_mesmo_pool_de_responses() -> None:
+    from stella.adapters.llm.base import Message
+    from stella.framework.testing.fakes import FakeLLM
+
+    llm = FakeLLM(responses=["resposta chat"])
+    resp = llm.chat([Message(role="user", content="oi")])
+    assert resp.texto == "resposta chat"
+    assert len(llm.calls) == 1
+
+
+def test_fake_llm_responses_acabam_levanta_runtime_error() -> None:
+    """Quando responses configuradas se esgotam, levanta erro em vez de default
+    silencioso — protege testes de assumir comportamento errado."""
+    from stella.framework.testing.fakes import FakeLLM
+
+    llm = FakeLLM(responses=["unica"])
+    llm.complete("p1")
+    with pytest.raises(RuntimeError, match="esgotou"):
+        llm.complete("p2")
