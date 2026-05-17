@@ -162,3 +162,54 @@ def test_reviewer_le_aprendizados_quando_existe(tmp_path: Path) -> None:
     )
     reviewer.review({}, AgentOutput(resultado={"x": 1}), _manifest(setor="copy"))
     assert "incrivel" in fake_llm.calls[0]
+
+
+def test_reviewer_segunda_tentativa_refazer_vira_aceitar_com_aviso(tmp_path: Path) -> None:
+    """Q2=E: refazer na tentativa 2 vira aceitar_com_aviso para nao travar Bruno."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    reviewer = _reviewer_real(
+        llm_responses=[json.dumps({"veredicto": "refazer", "feedback": "ainda fora do padrao"})],
+        skills_dir=skills_dir,
+    )
+    out = AgentOutput(resultado={"copy": "..."})
+    result = reviewer.review({}, out, _manifest(tipo="coordenador"), tentativa=2)
+    assert result.veredicto == "aceitar_com_aviso"
+    assert len(result.avisos_para_bruno) == 1
+    assert "tentou 2x" in result.avisos_para_bruno[0].lower()
+    assert "ainda fora do padrao" in result.avisos_para_bruno[0]
+
+
+def test_reviewer_terceira_tentativa_tambem_vira_aceitar_com_aviso(tmp_path: Path) -> None:
+    """Qualquer tentativa >= 2 com refazer -> aceitar_com_aviso (nao trava)."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    reviewer = _reviewer_real(
+        llm_responses=[json.dumps({"veredicto": "refazer", "feedback": "ainda fora"})],
+        skills_dir=skills_dir,
+    )
+    result = reviewer.review(
+        {},
+        AgentOutput(resultado={}),
+        _manifest(tipo="coordenador"),
+        tentativa=3,
+    )
+    assert result.veredicto == "aceitar_com_aviso"
+
+
+def test_reviewer_aprovado_na_segunda_tentativa_passa_normal(tmp_path: Path) -> None:
+    """Se na tentativa 2 o LLM aprova, devolve aprovado (sem aviso)."""
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir()
+    reviewer = _reviewer_real(
+        llm_responses=[json.dumps({"veredicto": "aprovado", "feedback": "agora sim"})],
+        skills_dir=skills_dir,
+    )
+    result = reviewer.review(
+        {},
+        AgentOutput(resultado={}),
+        _manifest(tipo="coordenador"),
+        tentativa=2,
+    )
+    assert result.veredicto == "aprovado"
+    assert result.avisos_para_bruno == []

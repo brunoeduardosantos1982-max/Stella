@@ -72,6 +72,21 @@ class QualityReviewer:
             )
 
         veredicto, feedback = self._avaliar_via_llm(input_original, output, agent_manifest)
+
+        # Q2=E: se refazer na 2a+ tentativa, converte para aceitar_com_aviso
+        # para nao travar o Bruno indefinidamente.
+        if veredicto == "refazer" and tentativa >= 2:
+            aviso = (
+                f"Senhor, {agent_manifest.nome} tentou 2x e ainda esta fora do padrao: "
+                f"{feedback}"
+            )
+            return ReviewResult(
+                veredicto="aceitar_com_aviso",
+                feedback=feedback,
+                output_final=output,
+                avisos_para_bruno=[aviso],
+            )
+
         return ReviewResult(veredicto=veredicto, feedback=feedback, output_final=output)
 
     def _avaliar_via_llm(
