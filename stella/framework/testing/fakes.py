@@ -6,6 +6,7 @@ o contrato da ABC correspondente, com estado in-memory para testes rapidos.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from fnmatch import fnmatchcase
 from typing import Any
@@ -113,6 +114,81 @@ class FakeLLM(LLMProvider):
         prompt = "\n".join(f"[{m.role}] {m.content}" for m in messages)
         self.calls.append(prompt)
         return LLMResponse(texto=self._proxima_resposta(), tokens_input=10, tokens_output=20)
+
+
+@dataclass
+class FakeMCP:
+    """Conexao MCP fake. Resultados pre-determinados por chave de invocacao."""
+
+    nome: str
+    category: str | None = None
+    resultados: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    calls: list[str] = field(default_factory=list)
+
+    def invoke(self, chave: str) -> list[dict[str, Any]]:
+        self.calls.append(chave)
+        return list(self.resultados.get(chave, []))
+
+
+@dataclass
+class FakeRAG:
+    """Cliente RAG fake. Busca sempre devolve `docs` pre-determinados."""
+
+    docs: list[dict[str, Any]] = field(default_factory=list)
+    queries: list[str] = field(default_factory=list)
+
+    def search(self, query: str, k: int = 5) -> list[dict[str, Any]]:
+        self.queries.append(query)
+        return list(self.docs[:k])
+
+
+class FakeTracker:
+    """UsageTracker fake — registra chamadas e soma custo."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def record(
+        self,
+        modelo: str,
+        tokens_input: int,
+        tokens_output: int,
+        custo_usd: float,
+    ) -> None:
+        self.calls.append(
+            {
+                "modelo": modelo,
+                "tokens_input": tokens_input,
+                "tokens_output": tokens_output,
+                "custo_usd": custo_usd,
+            }
+        )
+
+    def total_usd(self) -> float:
+        return float(sum(c["custo_usd"] for c in self.calls))
+
+
+class FakeLogger:
+    """Logger fake — captura mensagens por nivel em `records`.
+
+    Compativel com a API basica de logging.Logger (info/warning/error/debug),
+    suficiente para o framework. Producao usa logging.Logger real.
+    """
+
+    def __init__(self) -> None:
+        self.records: list[tuple[str, str]] = []
+
+    def debug(self, msg: str, *args: Any) -> None:
+        self.records.append(("DEBUG", msg % args if args else msg))
+
+    def info(self, msg: str, *args: Any) -> None:
+        self.records.append(("INFO", msg % args if args else msg))
+
+    def warning(self, msg: str, *args: Any) -> None:
+        self.records.append(("WARNING", msg % args if args else msg))
+
+    def error(self, msg: str, *args: Any) -> None:
+        self.records.append(("ERROR", msg % args if args else msg))
 
 
 def _fake_glob_match(path: str, pattern: str) -> bool:

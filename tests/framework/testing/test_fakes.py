@@ -144,3 +144,55 @@ def test_fake_llm_responses_acabam_levanta_runtime_error() -> None:
     llm.complete("p1")
     with pytest.raises(RuntimeError, match="esgotou"):
         llm.complete("p2")
+
+
+def test_fake_mcp_e_conexao_mcp_com_category_e_resultados() -> None:
+    from stella.framework.testing.fakes import FakeMCP
+
+    mcp = FakeMCP(
+        nome="brave-search-fake",
+        category="research",
+        resultados={"buscar:python": [{"titulo": "PEP 8"}]},
+    )
+    assert mcp.nome == "brave-search-fake"
+    assert mcp.category == "research"
+    assert mcp.invoke("buscar:python") == [{"titulo": "PEP 8"}]
+
+
+def test_fake_mcp_invoke_chave_inexistente_devolve_lista_vazia() -> None:
+    from stella.framework.testing.fakes import FakeMCP
+
+    mcp = FakeMCP(nome="x", category=None)
+    assert mcp.invoke("qualquer") == []
+
+
+def test_fake_rag_busca_devolve_docs_pre_determinados() -> None:
+    from stella.framework.testing.fakes import FakeRAG
+
+    rag = FakeRAG(docs=[{"titulo": "doc1"}, {"titulo": "doc2"}])
+    assert rag.search("qualquer query") == [{"titulo": "doc1"}, {"titulo": "doc2"}]
+
+
+def test_fake_tracker_registra_chamadas() -> None:
+    from stella.framework.testing.fakes import FakeTracker
+
+    t = FakeTracker()
+    t.record(modelo="gemma", tokens_input=100, tokens_output=50, custo_usd=0.001)
+    t.record(modelo="sonnet", tokens_input=200, tokens_output=100, custo_usd=0.01)
+    assert len(t.calls) == 2
+    assert t.calls[0]["modelo"] == "gemma"
+    assert t.total_usd() == pytest.approx(0.011)
+
+
+def test_fake_logger_captura_mensagens_por_nivel() -> None:
+    from stella.framework.testing.fakes import FakeLogger
+
+    log = FakeLogger()
+    log.info("mensagem info")
+    log.warning("mensagem warn")
+    log.error("mensagem erro")
+    assert log.records == [
+        ("INFO", "mensagem info"),
+        ("WARNING", "mensagem warn"),
+        ("ERROR", "mensagem erro"),
+    ]
