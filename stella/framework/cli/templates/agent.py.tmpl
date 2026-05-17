@@ -1,0 +1,27 @@
+"""Implementacao do agente {NOME}.
+
+Para usar: edite execute() abaixo. As deps sao injetadas via build_agent
+(framework/builder.py).
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from stella.framework.agent import Agent as BaseAgent
+from stella.framework.agent import AgentOutput
+
+
+class Agent(BaseAgent):
+    """Agente {NOME} (setor {SETOR}, tipo {TIPO})."""
+
+    def execute(self, input: dict[str, Any]) -> AgentOutput:
+        # TODO: implementar logica do agente {NOME}.
+        # As deps estao em self._manifest, self._vault, self._llm,
+        # self._skills, self._mcps, self._rag, self._tracker, self._logger,
+        # self._registry. Coordenadores usam self.delegate_to(nome, payload).
+        return AgentOutput(
+            resultado={{"status": "nao implementado"}},
+            sucesso=False,
+            mensagens=["agente {NOME} ainda nao tem execute() real"],
+        )

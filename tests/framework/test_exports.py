@@ -26,6 +26,21 @@ def test_pode_importar_tipos_centrais_fb_m1_de_framework_root() -> None:
     assert load_manifest is not None
 
 
+def test_pode_importar_tipos_fb_m3_de_framework_root() -> None:
+    """Novos symbols do FB-M3: quality (reviewer, policy, feedback)."""
+    from stella.framework import (
+        FeedbackLogger,
+        QualityReviewer,
+        ReviewPolicy,
+        ReviewResult,
+    )
+
+    assert FeedbackLogger is not None
+    assert QualityReviewer is not None
+    assert ReviewPolicy is not None
+    assert ReviewResult is not None
+
+
 def test_pode_importar_tipos_fb_m2_de_framework_root() -> None:
     """Novos symbols do FB-M2: registries, builder, scheduling, editor, sandbox."""
     from stella.framework import (

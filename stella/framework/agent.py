@@ -6,11 +6,15 @@ e o helper `delegate_to` que Coordenadores usam para chamar Especialistas.
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from stella.adapters.llm.router import LLMRouter
 from stella.adapters.vault.base import VaultRepository
+from stella.domain.conexao_mcp import ConexaoMCP
+from stella.domain.skill import Skill
 from stella.framework.errors import DelegationDepthExceeded
 from stella.framework.manifest import AgentManifest
 
@@ -67,25 +71,24 @@ class Agent(ABC):
         *,
         manifest: AgentManifest | None = None,
         vault: VaultRepository | None = None,
-        llm: object | None = None,
-        skills: list[object] | None = None,
-        mcps: list[object] | None = None,
+        llm: LLMRouter | None = None,
+        skills: list[Skill] | None = None,
+        mcps: list[ConexaoMCP] | None = None,
         rag: object | None = None,
         tracker: object | None = None,
-        logger: object | None = None,
+        logger: logging.Logger | None = None,
         registry: object | None = None,
     ) -> None:
-        """Construtor com Dependency Injection (FB-M2).
+        """Construtor com Dependency Injection (FB-M2 + FB-M3).
 
         Todas as deps são opcionais para que subclasses possam ser instanciadas
-        sem args em testes unitários ainda sem fixtures (FB-M3 traz as Fakes).
+        sem args em testes unitários ainda sem fixtures.
         Em produção, `build_agent()` injeta tudo a partir do manifest.
 
-        Tipos `object | None` em `llm`/`skills`/`mcps`/`rag`/`tracker`/`logger`:
-        são placeholders. FB-M3 substitui pelos tipos concretos quando os
-        adapters reais (LLMRouter, Skill, MCPConnection, etc) consolidarem
-        suas APIs públicas. Manter `object` evita imports circulares e não
-        empurra escopo de FB-M3 para FB-M2.
+        FB-M3 estreitou tipos concretos para llm/skills/mcps/logger.
+        `rag`/`tracker`/`registry` permanecem `object | None`: rag stub,
+        tracker tem APIs diferentes em testes, registry causaria ciclo
+        Registry-Agent-Builder.
         """
         self._manifest = manifest
         self._vault = vault

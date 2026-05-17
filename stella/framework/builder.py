@@ -4,16 +4,16 @@ build_agent resolve recursos via registries (skills/mcps/rag) e importa a
 classe Agent do modulo stella.agents.<nome> (convencao: o __init__.py do
 agente expoe `Agent` apontando para a classe concreta).
 
-Limitacoes conhecidas de FB-M2 (Design previa, mas adiamos):
-- llm.with_minimum(modelo): builder passa llm sem floor de modelo. Sera
-  endurecido em milestone futuro.
+FB-M3 fechou as limitacoes que FB-M2 tinha (vault.scoped, llm.with_minimum).
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from importlib import import_module
 
+from stella.adapters.llm.router import LLMRouter
 from stella.adapters.vault.base import VaultRepository
 from stella.framework.agent import Agent
 from stella.framework.manifest import AgentManifest
@@ -32,12 +32,12 @@ class FrameworkDeps:
     """
 
     vault: VaultRepository
-    llm: object | None
+    llm: LLMRouter | None
     skills_reg: SkillsRegistry
     mcp_reg: MCPRegistry
     rag_reg: RAGRegistry
     tracker: object | None
-    logger: object | None
+    logger: logging.Logger | None
     registry: AgentRegistry
 
 
@@ -67,10 +67,13 @@ def build_agent(manifest: AgentManifest, deps: FrameworkDeps) -> Agent:
     cls: type[Agent] = modulo.Agent
 
     vault_scoped = deps.vault.scoped(manifest.vault_scope)
+    llm_scoped: LLMRouter | None = None
+    if deps.llm is not None:
+        llm_scoped = deps.llm.with_minimum(manifest.modelo_minimo)
     return cls(
         manifest=manifest,
         vault=vault_scoped,
-        llm=deps.llm,
+        llm=llm_scoped,
         skills=list(skills),
         mcps=list(mcps),
         rag=rag,
