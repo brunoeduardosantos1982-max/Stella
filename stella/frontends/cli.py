@@ -4,6 +4,7 @@ from datetime import datetime
 import typer
 
 from stella.app import Stella, build_stella
+from stella.framework.cli.agent_cli import agent_app
 from stella.framework.errors import (
     AgentExecutionError,
     AgentNotFoundError,
@@ -71,6 +72,7 @@ def _forcar_stdout_utf8() -> None:
 _forcar_stdout_utf8()
 
 app = typer.Typer(help="Stella — assistente pessoal do Bruno.")
+app.add_typer(agent_app, name="agent")
 
 
 def _build_stella_para_cli() -> Stella:
