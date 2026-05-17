@@ -13,6 +13,7 @@ Uso tipico em test de agente:
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,7 @@ from stella.framework.registry import AgentRegistry
 from stella.framework.resources.mcp_registry import MCPRegistry
 from stella.framework.resources.rag_registry import RAGRegistry
 from stella.framework.resources.skills_registry import SkillsRegistry
-from stella.framework.testing.fakes import FakeLLM, FakeLogger, FakeTracker, FakeVault
+from stella.framework.testing.fakes import FakeLLM, FakeTracker, FakeVault
 
 
 def make_fake_deps(
@@ -60,6 +61,6 @@ def make_fake_deps(
         mcp_reg=mcp_reg,
         rag_reg=RAGRegistry(),
         tracker=FakeTracker(),
-        logger=FakeLogger(),
+        logger=logging.getLogger("stella.testing.fake"),
         registry=AgentRegistry(agents_dir),
     )
