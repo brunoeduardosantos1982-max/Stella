@@ -10,7 +10,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+from stella.adapters.vault.base import VaultRepository
 from stella.framework.errors import DelegationDepthExceeded
+from stella.framework.manifest import AgentManifest
 
 # Profundidade máxima de cadeias de delegação (A → B → C → ...).
 # Acima disso, suspeita-se de loop infinito; framework cancela.
@@ -60,12 +62,40 @@ class Agent(ABC):
         registry: AgentRegistry (para Coordenadores fazerem delegate_to)
     """
 
-    def __init__(self) -> None:
-        # FB-M1: construtor mínimo (sem DI ainda).
-        # FB-M2 vai estender esta assinatura para receber as 9 dependências
-        # listadas no docstring. Por enquanto, subclasses concretas podem
-        # ser instanciadas sem argumentos para fins de teste.
-        self._registry: object | None = None
+    def __init__(
+        self,
+        *,
+        manifest: AgentManifest | None = None,
+        vault: VaultRepository | None = None,
+        llm: object | None = None,
+        skills: list[object] | None = None,
+        mcps: list[object] | None = None,
+        rag: object | None = None,
+        tracker: object | None = None,
+        logger: object | None = None,
+        registry: object | None = None,
+    ) -> None:
+        """Construtor com Dependency Injection (FB-M2).
+
+        Todas as deps são opcionais para que subclasses possam ser instanciadas
+        sem args em testes unitários ainda sem fixtures (FB-M3 traz as Fakes).
+        Em produção, `build_agent()` injeta tudo a partir do manifest.
+
+        Tipos `object | None` em `llm`/`skills`/`mcps`/`rag`/`tracker`/`logger`:
+        são placeholders. FB-M3 substitui pelos tipos concretos quando os
+        adapters reais (LLMRouter, Skill, MCPConnection, etc) consolidarem
+        suas APIs públicas. Manter `object` evita imports circulares e não
+        empurra escopo de FB-M3 para FB-M2.
+        """
+        self._manifest = manifest
+        self._vault = vault
+        self._llm = llm
+        self._skills = skills if skills is not None else []
+        self._mcps = mcps if mcps is not None else []
+        self._rag = rag
+        self._tracker = tracker
+        self._logger = logger
+        self._registry = registry
 
     @abstractmethod
     def execute(self, input: dict[str, Any]) -> AgentOutput:

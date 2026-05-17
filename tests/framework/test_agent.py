@@ -2,6 +2,7 @@ import pytest
 
 from stella.framework.agent import Agent, AgentOutput
 from stella.framework.errors import DelegationDepthExceeded
+from stella.framework.manifest import AgentManifest
 
 
 def test_agent_output_minimo() -> None:
@@ -64,3 +65,52 @@ def test_delegate_to_depth_4_ainda_permite() -> None:
     a = _AgenteFake()
     with pytest.raises(RuntimeError, match="registry"):
         a.delegate_to("x", {}, _depth=4)
+
+
+def _manifest_para_teste() -> AgentManifest:
+    from stella.framework.manifest import CapacidadesExternas
+
+    return AgentManifest(
+        nome="t",
+        tipo="especialista",
+        setor="testes",
+        descricao="agente para testes do framework",
+        execucao="in_process",
+        modelo_minimo="gemma",
+        inputs_obrigatorios=[],
+        exemplo_uso={},
+        quando_usar="apenas em testes — não use em produção",
+        capacidades_externas=CapacidadesExternas(),
+    )
+
+
+def test_agent_aceita_manifest_via_kwarg() -> None:
+    m = _manifest_para_teste()
+    a = _AgenteFake(manifest=m)
+    assert a._manifest is m
+
+
+def test_agent_aceita_todas_as_deps_opcionais_via_kwargs() -> None:
+    """Garante que o __init__ aceita todas as 9 dependências como kwargs."""
+    m = _manifest_para_teste()
+    a = _AgenteFake(
+        manifest=m,
+        vault=None,
+        llm=None,
+        skills=[],
+        mcps=[],
+        rag=None,
+        tracker=None,
+        logger=None,
+        registry=None,
+    )
+    assert a._manifest is m
+    assert a._skills == []
+    assert a._mcps == []
+
+
+def test_agent_sem_args_continua_funcionando_compat_fb_m1() -> None:
+    """Construtor sem args ainda funciona — testes do FB-M1 não quebram."""
+    a = _AgenteFake()
+    assert a._manifest is None
+    assert a._registry is None
