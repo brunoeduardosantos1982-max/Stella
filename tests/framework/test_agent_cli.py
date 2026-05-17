@@ -87,3 +87,80 @@ def test_agent_show_http_mostra_endpoint(tmp_path: Path) -> None:
 def test_agent_show_nome_inexistente_devolve_erro(tmp_path: Path) -> None:
     result = runner.invoke(agent_app, ["show", "nao-existe", "--agents-dir", str(tmp_path)])
     assert result.exit_code != 0
+
+
+def test_agent_new_cria_estrutura_de_pastas(tmp_path: Path) -> None:
+    result = runner.invoke(
+        agent_app,
+        [
+            "new",
+            "agente_novo",
+            "--setor",
+            "marketing",
+            "--tipo",
+            "especialista",
+            "--agents-dir",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code == 0, result.stdout
+    assert (tmp_path / "agente_novo" / "__init__.py").exists()
+    assert (tmp_path / "agente_novo" / "agent.py").exists()
+    assert (tmp_path / "agente_novo" / "manifest.yaml").exists()
+
+
+def test_agent_new_manifest_tem_setor_e_tipo_substituidos(tmp_path: Path) -> None:
+    runner.invoke(
+        agent_app,
+        [
+            "new",
+            "agente_x",
+            "--setor",
+            "financeiro",
+            "--tipo",
+            "coordenador",
+            "--agents-dir",
+            str(tmp_path),
+        ],
+    )
+    manifest = (tmp_path / "agente_x" / "manifest.yaml").read_text(encoding="utf-8")
+    assert "nome: agente_x" in manifest
+    assert "tipo: coordenador" in manifest
+    assert "setor: financeiro" in manifest
+
+
+def test_agent_new_agent_py_tem_classe_agent_substituida(tmp_path: Path) -> None:
+    runner.invoke(
+        agent_app,
+        [
+            "new",
+            "agente_y",
+            "--setor",
+            "copy",
+            "--tipo",
+            "especialista",
+            "--agents-dir",
+            str(tmp_path),
+        ],
+    )
+    agent_py = (tmp_path / "agente_y" / "agent.py").read_text(encoding="utf-8")
+    assert "Agente agente_y" in agent_py
+    assert "class Agent(BaseAgent)" in agent_py
+
+
+def test_agent_new_pasta_ja_existe_devolve_erro(tmp_path: Path) -> None:
+    (tmp_path / "agente_dup").mkdir()
+    result = runner.invoke(
+        agent_app,
+        [
+            "new",
+            "agente_dup",
+            "--setor",
+            "x",
+            "--tipo",
+            "especialista",
+            "--agents-dir",
+            str(tmp_path),
+        ],
+    )
+    assert result.exit_code != 0

@@ -74,3 +74,44 @@ def show_agent(
     typer.echo(f"RAG:            {m.capacidades_externas.rag or '(nenhum)'}")
     if m.especialistas:
         typer.echo(f"Especialistas:  {', '.join(m.especialistas)}")
+
+
+_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+
+
+@agent_app.command("new")
+def new_agent(
+    nome: Annotated[str, typer.Argument(help="Nome do novo agente (snake_case)")],
+    setor: Annotated[str, typer.Option("--setor", help="Setor (marketing, financeiro, etc)")],
+    tipo: Annotated[
+        str, typer.Option("--tipo", help="Tipo: 'coordenador' ou 'especialista'")
+    ] = "especialista",
+    agents_dir: _AgentsDirOpt = _DEFAULT_AGENTS_DIR,
+) -> None:
+    """Cria scaffolding de um novo agente."""
+    if tipo not in ("coordenador", "especialista"):
+        typer.echo(f"--tipo deve ser 'coordenador' ou 'especialista', recebi '{tipo}'.", err=True)
+        raise typer.Exit(code=1)
+
+    pasta = agents_dir / nome
+    if pasta.exists():
+        typer.echo(f"Pasta {pasta} ja existe — nao sobrescrevo.", err=True)
+        raise typer.Exit(code=1)
+
+    pasta.mkdir(parents=True)
+    substituicoes = {"NOME": nome, "SETOR": setor, "TIPO": tipo}
+    _criar_arquivo(pasta / "__init__.py", _TEMPLATES_DIR / "__init__.py.tmpl", substituicoes)
+    _criar_arquivo(pasta / "agent.py", _TEMPLATES_DIR / "agent.py.tmpl", substituicoes)
+    _criar_arquivo(pasta / "manifest.yaml", _TEMPLATES_DIR / "manifest.yaml.tmpl", substituicoes)
+
+    typer.echo(f"Agente '{nome}' criado em {pasta}.")
+    typer.echo("Proximos passos:")
+    typer.echo(f"  1. Editar {pasta}/manifest.yaml (descricao + capacidades)")
+    typer.echo(f"  2. Implementar execute() em {pasta}/agent.py")
+    typer.echo("  3. Adicionar testes em tests/agents/<nome>/test_agent.py")
+
+
+def _criar_arquivo(destino: Path, template: Path, substituicoes: dict[str, str]) -> None:
+    """Le template, substitui placeholders {CHAVE} e grava no destino."""
+    conteudo = template.read_text(encoding="utf-8").format(**substituicoes)
+    destino.write_text(conteudo, encoding="utf-8")
