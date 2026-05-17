@@ -42,6 +42,9 @@ from stella.framework.manifest import (
     CapacidadesExternas,
     load_manifest,
 )
+from stella.framework.quality.feedback import FeedbackLogger
+from stella.framework.quality.policies import ReviewPolicy
+from stella.framework.quality.reviewer import QualityReviewer, ReviewResult
 from stella.framework.registry import AgentRegistry
 from stella.framework.resources.mcp_registry import MCPRegistry
 from stella.framework.resources.rag_registry import RAGRegistry
@@ -65,6 +68,7 @@ __all__ = [
     "BudgetExceededError",
     "CapacidadesExternas",
     "DelegationDepthExceeded",
+    "FeedbackLogger",
     "FrameworkDeps",
     "FrameworkError",
     "HttpAgentClient",
@@ -75,9 +79,12 @@ __all__ = [
     "MCPRegistry",
     "ManifestError",
     "QualityReviewFailed",
+    "QualityReviewer",
     "RAGNotFoundError",
     "RAGRegistry",
     "RegistryError",
+    "ReviewPolicy",
+    "ReviewResult",
     "Sandbox",
     "SkillEditor",
     "SkillNotFoundError",
