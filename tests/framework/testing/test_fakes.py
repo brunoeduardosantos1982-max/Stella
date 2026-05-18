@@ -174,14 +174,58 @@ def test_fake_rag_busca_devolve_docs_pre_determinados() -> None:
 
 
 def test_fake_tracker_registra_chamadas() -> None:
+    from datetime import datetime
+
     from stella.framework.testing.fakes import FakeTracker
+    from stella.infra.usage_tracker import UsageRecord
 
     t = FakeTracker()
-    t.record(modelo="gemma", tokens_input=100, tokens_output=50, custo_usd=0.001)
-    t.record(modelo="sonnet", tokens_input=200, tokens_output=100, custo_usd=0.01)
-    assert len(t.calls) == 2
-    assert t.calls[0]["modelo"] == "gemma"
+    t.record(
+        UsageRecord(
+            momento=datetime.now(),
+            provider="nvidia",
+            modelo="google/gemma-4-31b-it",
+            tokens_input=100,
+            tokens_output=50,
+            custo_usd=0.001,
+        )
+    )
+    t.record(
+        UsageRecord(
+            momento=datetime.now(),
+            provider="anthropic",
+            modelo="claude-sonnet-4-6",
+            tokens_input=200,
+            tokens_output=100,
+            custo_usd=0.01,
+        )
+    )
+    assert len(t.records) == 2
+    assert t.records[0].provider == "nvidia"
     assert t.total_usd() == pytest.approx(0.011)
+
+
+def test_fake_tracker_satisfaz_tracker_protocol() -> None:
+    """FakeTracker e UsageTracker real ambos satisfazem TrackerProtocol."""
+    from datetime import datetime
+
+    from stella.framework.testing.fakes import FakeTracker
+    from stella.framework.tracking import TrackerProtocol
+    from stella.infra.usage_tracker import UsageRecord
+
+    def aceita_tracker(t: TrackerProtocol) -> None:
+        t.record(
+            UsageRecord(
+                momento=datetime.now(),
+                provider="x",
+                modelo="y",
+                tokens_input=0,
+                tokens_output=0,
+                custo_usd=0.0,
+            )
+        )
+
+    aceita_tracker(FakeTracker())
 
 
 def test_fake_logger_captura_mensagens_por_nivel() -> None:

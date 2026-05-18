@@ -10,11 +10,21 @@ class LLMRouter:
     2. Se a tarefa usa skill ou MCP → Anthropic (Gemma não suporta MCP nativo).
     3. Se complexidade é "high" → Anthropic.
     4. Caso contrário → o provider `default`.
+
+    FB-M4: slot opcional `opus` permite `with_minimum(OPUS)` retornar provider Opus
+    real em vez de fallback para Sonnet.
     """
 
-    def __init__(self, gemma: LLMProvider, anthropic: LLMProvider, default: str = "gemma"):
+    def __init__(
+        self,
+        gemma: LLMProvider,
+        anthropic: LLMProvider,
+        opus: LLMProvider | None = None,
+        default: str = "gemma",
+    ):
         self._gemma = gemma
         self._anthropic = anthropic
+        self._opus = opus
         self._default = default
 
     def select(
@@ -37,8 +47,9 @@ class LLMRouter:
         """Devolve um proxy que forca minimo de modelo nas chamadas.
 
         Se minimo == GEMMA: comportamento identico ao router base.
-        Se minimo == SONNET ou OPUS: select() sempre devolve Anthropic
-            (OPUS escala para Sonnet ate adapter dedicado existir).
+        Se minimo == SONNET: select() sempre devolve Anthropic.
+        Se minimo == OPUS: usa slot `opus` se configurado, senao fallback
+            para Anthropic (Sonnet) — compat com FB-M3.
         """
         return _LLMRouterComMinimo(self, modelo_minimo)
 
@@ -47,7 +58,12 @@ class _LLMRouterComMinimo(LLMRouter):
     """Proxy de LLMRouter que aplica floor de modelo."""
 
     def __init__(self, base: LLMRouter, minimo: ModeloIA) -> None:
-        super().__init__(gemma=base._gemma, anthropic=base._anthropic, default=base._default)
+        super().__init__(
+            gemma=base._gemma,
+            anthropic=base._anthropic,
+            opus=base._opus,
+            default=base._default,
+        )
         self._minimo = minimo
 
     def select(
@@ -56,6 +72,8 @@ class _LLMRouterComMinimo(LLMRouter):
         force: str | None = None,
         usa_skill_ou_mcp: bool = False,
     ) -> LLMProvider:
+        if self._minimo == ModeloIA.OPUS and self._opus is not None:
+            return self._opus
         if self._minimo in (ModeloIA.SONNET, ModeloIA.OPUS):
             return self._anthropic
         return super().select(complexity=complexity, force=force, usa_skill_ou_mcp=usa_skill_ou_mcp)

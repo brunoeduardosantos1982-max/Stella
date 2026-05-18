@@ -53,6 +53,73 @@ def test_delegate_to_sem_registry_levanta_erro() -> None:
         a.delegate_to("outro_agente", {"x": 1})
 
 
+def test_delegate_to_cross_agent_loop_detectado_via_contextvar() -> None:
+    """A → B → A → B → ... : ContextVar acumula depth entre agentes diferentes.
+
+    Cada agente reseta seu _depth local mas a ContextVar lembra. Após
+    MAX_DELEGATION_DEPTH (=5) níveis na cadeia, levanta DelegationDepthExceeded.
+    """
+    from stella.framework.client import InProcessClient
+    from stella.framework.manifest import CapacidadesExternas
+
+    def _mk_manifest(nome: str) -> AgentManifest:
+        return AgentManifest(
+            nome=nome,
+            tipo="especialista",
+            setor="testes",
+            descricao=f"agente {nome} para teste de loop cross-agent",
+            execucao="in_process",
+            modelo_minimo="gemma",
+            inputs_obrigatorios=[],
+            exemplo_uso={},
+            quando_usar="apenas para teste de contextvar loop",
+            capacidades_externas=CapacidadesExternas(),
+        )
+
+    contador = {"chamadas": 0}
+
+    class _RegistryFake:
+        def __init__(self, agentes: dict):
+            self._agentes = agentes
+
+        def get(self, nome: str):
+            return InProcessClient(agent=self._agentes[nome], manifest=_mk_manifest(nome))
+
+    class _AgentePingPong(Agent):
+        """Sempre delega para o oponente (loop forcado)."""
+
+        def __init__(self, *, oponente: str, **kwargs):
+            super().__init__(**kwargs)
+            self._oponente = oponente
+
+        def execute(self, input: dict) -> AgentOutput:
+            contador["chamadas"] += 1
+            return self.delegate_to(self._oponente, input)
+
+    agente_a = _AgentePingPong(oponente="b")
+    agente_b = _AgentePingPong(oponente="a")
+    registry = _RegistryFake({"a": agente_a, "b": agente_b})
+    agente_a._registry = registry
+    agente_b._registry = registry
+
+    # InProcessClient envolve a exception original em AgentExecutionError
+    # quando o agente delegado falha. Capturamos a cadeia inteira.
+    from stella.framework.errors import AgentExecutionError
+
+    with pytest.raises((DelegationDepthExceeded, AgentExecutionError)) as exc_info:
+        agente_a.execute({"x": 1})
+    # Verifica que a causa-raiz é DelegationDepthExceeded
+    erro: BaseException | None = exc_info.value
+    encontrado = False
+    while erro is not None:
+        if isinstance(erro, DelegationDepthExceeded):
+            encontrado = True
+            break
+        erro = erro.__cause__
+    assert encontrado, "DelegationDepthExceeded deve estar na cadeia de causas"
+    assert contador["chamadas"] >= 5
+
+
 def test_delegate_to_com_registry_chama_execute_do_agente_alvo() -> None:
     """delegate_to resolve agent_name via registry e chama execute()."""
     from stella.framework.client import InProcessClient

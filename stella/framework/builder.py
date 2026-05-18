@@ -21,6 +21,7 @@ from stella.framework.registry import AgentRegistry
 from stella.framework.resources.mcp_registry import MCPRegistry
 from stella.framework.resources.rag_registry import RAGRegistry
 from stella.framework.resources.skills_registry import SkillsRegistry
+from stella.framework.tracking import TrackerProtocol
 
 
 @dataclass
@@ -36,7 +37,7 @@ class FrameworkDeps:
     skills_reg: SkillsRegistry
     mcp_reg: MCPRegistry
     rag_reg: RAGRegistry
-    tracker: object | None
+    tracker: TrackerProtocol | None
     logger: logging.Logger | None
     registry: AgentRegistry
 

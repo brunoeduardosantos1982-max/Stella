@@ -63,10 +63,26 @@ def test_with_minimum_sonnet_escala_pedido_de_gemma(gemma, anthropic):
     assert proxy.select(complexity="low").nome == "anthropic"
 
 
-def test_with_minimum_opus_tambem_escala_para_sonnet_em_fb_m3(gemma, anthropic):
-    """OPUS ainda nao tem provider proprio — escala para Sonnet ate adapter chegar."""
+def test_with_minimum_opus_fallback_para_anthropic_sem_opus(gemma, anthropic):
+    """Compat FB-M3: sem slot opus configurado, with_minimum(OPUS) escala para Sonnet."""
     router = LLMRouter(gemma=gemma, anthropic=anthropic, default="gemma")
     proxy = router.with_minimum(ModeloIA.OPUS)
+    assert proxy.select(complexity="low").nome == "anthropic"
+
+
+def test_with_minimum_opus_usa_opus_provider_quando_existe(gemma, anthropic):
+    """FB-M4: quando slot opus configurado, with_minimum(OPUS) usa opus real."""
+    opus = _ProviderDummy("opus")
+    router = LLMRouter(gemma=gemma, anthropic=anthropic, opus=opus, default="gemma")
+    proxy = router.with_minimum(ModeloIA.OPUS)
+    assert proxy.select(complexity="low").nome == "opus"
+
+
+def test_with_minimum_sonnet_ainda_usa_anthropic_mesmo_com_opus(gemma, anthropic):
+    """Slot opus nao interfere quando minimo=SONNET (apenas para OPUS)."""
+    opus = _ProviderDummy("opus")
+    router = LLMRouter(gemma=gemma, anthropic=anthropic, opus=opus, default="gemma")
+    proxy = router.with_minimum(ModeloIA.SONNET)
     assert proxy.select(complexity="low").nome == "anthropic"
 
 

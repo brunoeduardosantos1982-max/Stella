@@ -9,13 +9,21 @@ não puder ser resolvida.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError
 
 from stella.domain.enums import ModeloIA
-from stella.framework.errors import ManifestError
+from stella.framework.errors import (
+    ManifestError,
+    MCPNotFoundError,
+    RAGNotFoundError,
+    SkillNotFoundError,
+)
+
+if TYPE_CHECKING:
+    from stella.framework.builder import FrameworkDeps
 
 
 class CapacidadesExternas(BaseModel):
@@ -92,3 +100,34 @@ def load_manifest(path: Path) -> AgentManifest:
         raise ManifestError(
             f"Manifest inválido em {path}: campo ou valor não atende ao schema. " f"Detalhe: {e}"
         ) from e
+
+
+def validate_manifest_resources(manifest: AgentManifest, deps: FrameworkDeps) -> list[str]:
+    """Valida que skills/MCPs/RAG declarados no manifest existem nos registries.
+
+    Devolve lista de mensagens de erro (vazia = tudo OK). Nao levanta excecao —
+    chamador decide se loga warning ou faz fail-fast. Usado por `build_stella`
+    como early warning didatico no startup.
+    """
+    erros: list[str] = []
+    cap = manifest.capacidades_externas
+
+    for skill_id in cap.skills:
+        try:
+            deps.skills_reg.get(skill_id)
+        except SkillNotFoundError:
+            erros.append(f"skill '{skill_id}' declarada mas nao registrada")
+
+    for mcp_nome in cap.mcps:
+        try:
+            deps.mcp_reg.get(mcp_nome)
+        except MCPNotFoundError:
+            erros.append(f"MCP '{mcp_nome}' declarada mas nao registrada")
+
+    if cap.rag is not None:
+        try:
+            deps.rag_reg.get(cap.rag)
+        except RAGNotFoundError:
+            erros.append(f"RAG '{cap.rag}' declarado mas nao registrado")
+
+    return erros

@@ -80,3 +80,25 @@ def test_modelo_padrao_invalido_levanta_erro(monkeypatch, tmp_path):
 
     with pytest.raises(ValidationError):
         StellaConfig()
+
+
+def test_config_tem_agents_dir_default_apontando_para_pacote(monkeypatch, tmp_path):
+    """FB-M4 C1: StellaConfig.agents_dir default = stella/agents."""
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+
+    cfg = StellaConfig()
+    assert cfg.agents_dir.name == "agents"
+    assert "stella" in str(cfg.agents_dir)
+
+
+def test_config_tem_skills_dir_default_apontando_para_prompts_skills(monkeypatch, tmp_path):
+    """FB-M4 C1: StellaConfig.skills_dir default = stella/prompts/skills."""
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+
+    cfg = StellaConfig()
+    assert cfg.skills_dir.name == "skills"
+    assert "prompts" in str(cfg.skills_dir)

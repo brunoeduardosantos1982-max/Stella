@@ -3,7 +3,13 @@ from pathlib import Path
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+import stella as _stella_pkg
 from stella.domain.enums import ModeloIA
+
+
+def _pacote_root() -> Path:
+    """Devolve a raiz do pacote `stella/` em disco — usado para defaults FB-M4."""
+    return Path(_stella_pkg.__file__).parent
 
 
 class StellaConfig(BaseSettings):
@@ -28,3 +34,7 @@ class StellaConfig(BaseSettings):
 
     # Hora da verificação de segurança diária (0-23)
     daily_check_hour: int = Field(default=7, ge=0, le=23)
+
+    # FB-M4: paths usados pelo framework multi-agente
+    agents_dir: Path = Field(default_factory=lambda: _pacote_root() / "agents")
+    skills_dir: Path = Field(default_factory=lambda: _pacote_root() / "prompts" / "skills")

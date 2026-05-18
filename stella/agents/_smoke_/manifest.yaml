@@ -1,0 +1,20 @@
+nome: _smoke_
+tipo: especialista
+setor: testes
+descricao: "Agente smoke interno para validar pipeline end-to-end do framework (FB-M4 C2). Recebe texto, chama LLM, devolve eco."
+execucao: in_process
+modelo_minimo: gemma
+
+inputs_obrigatorios: []
+exemplo_uso:
+  texto: "ping"
+quando_usar: "apenas para smoke test do framework — nunca em producao"
+
+capacidades_externas:
+  skills: []
+  mcps: []
+  rag: null
+
+vault_scope: "C04 Claude Obsidian/Stella-workspace/_smoke_/**"
+
+especialistas: []

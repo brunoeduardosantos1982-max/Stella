@@ -1,0 +1,20 @@
+nome: _smoke_critico_
+tipo: especialista
+setor: copy
+descricao: "Variante setor=copy do _smoke_ para testar pipeline com QualityReviewer (FB-M4 C2). Setor copy aciona revisao por padrao."
+execucao: in_process
+modelo_minimo: gemma
+
+inputs_obrigatorios: []
+exemplo_uso:
+  texto: "lancamento curso"
+quando_usar: "apenas para smoke test do framework com QualityReviewer — nunca em producao"
+
+capacidades_externas:
+  skills: []
+  mcps: []
+  rag: null
+
+vault_scope: "C04 Claude Obsidian/Stella-workspace/_smoke_critico_/**"
+
+especialistas: []

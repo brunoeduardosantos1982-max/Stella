@@ -130,13 +130,28 @@ if review.veredicto == "refazer":
 
 - **FB-M1** (Tipos base + Contratos) — ✅ merged em master
 - **FB-M2** (Registries + Builder + Hooks + vault.scoped) — ✅ merged em master
-- **FB-M3** (Quality + Fixtures + CLI + README) — ✅ este milestone, fecha Sub-projeto A
-- **Próximo:** Sub-projeto B — 1º agente piloto (sugestão do Design: Programador)
+- **FB-M3** (Quality + Fixtures + CLI + README) — ✅ merged em master
+- **FB-M4** (Polimento + Integração Real) — ✅ Sub-projeto A 100% fechado em produção
+- **Próximo:** Sub-projeto B — 1º agente piloto
 
-## Limitações conhecidas
+### FB-M4 — o que mudou
+- **Stella usa o framework de verdade.** `build_stella(config)` agora monta AgentRegistry, QualityReviewer, FeedbackLogger e chama bind_builder automaticamente.
+- **Smoke test E2E** com Anthropic API real (`pytest -m live tests/e2e/`).
+- **UsageTracker integrado** via `TrackerProtocol` — custo de tokens dos agentes é tracked.
+- **Cross-agent loop detection** via `contextvars.ContextVar` — loop A→B→A→B é detectado.
+- **`validate_manifest_resources`** loga warnings sobre skills/MCPs/RAG faltando no startup.
+- **`OpusProvider` real** — `LLMRouter.with_minimum(OPUS)` retorna Opus quando configurado (era fallback Sonnet).
+- **`RAGClient` ABC** — contrato definido (implementação concreta em Sub-projetos F/H).
+- **CLI `stella agent show --resolve`** — mostra `✓/✗` por skill declarada.
 
-- `OPUS` no `LLMRouter.with_minimum`: escala para Sonnet (não temos provider Opus dedicado ainda).
-- `delegate_to` depth control é local — loop A→B→A não é detectado (precisaria contextvars). Aceito até virar problema real.
-- `RAGRegistry` é stub — corpora reais entram quando Sub-projetos F/H demandarem.
+## Limitações conhecidas (pós FB-M4)
+
+- `RAGRegistry` aceita registros via `RAGClient` ABC, mas **não há cliente concreto** — corpora reais entram com Sub-projetos F/H.
 - `BackgroundScheduler`/`SkillEditor`/`Sandbox` são ABCs vazias — implementações concretas vêm nos Sub-projetos E e G.
-- `BudgetExceededError` no handler `_traduzir_erro_jarvis` traduz a mensagem mas o pause real só virá quando a Stella tiver orquestração própria de execução de agentes.
+- `BudgetExceededError` no handler `_traduzir_erro_jarvis` traduz a mensagem mas o pause real só virá quando a Stella tiver orquestração própria de execução de agentes (Sub-projeto B).
+- `_smoke_` e `_smoke_critico_` são agentes internos (sinalizados por `_underscore_`); não rodam em produção.
+
+### Limitações fechadas em FB-M4
+- ~~`OPUS` escala para Sonnet~~ → fechado: slot `opus` no LLMRouter aceita provider dedicado.
+- ~~`delegate_to` cross-agent loop não detectado~~ → fechado: `ContextVar` rastreia depth entre agentes.
+- ~~`UsageTracker` não integrado ao framework~~ → fechado: `TrackerProtocol`.

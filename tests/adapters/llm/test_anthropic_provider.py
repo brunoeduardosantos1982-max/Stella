@@ -97,3 +97,19 @@ def test_max_tokens_configuravel_via_init() -> None:
     provider = AnthropicProvider(api_key="ant", client=fake, max_tokens=512)
     provider.complete("oi")
     assert fake.messages.ultima_chamada["max_tokens"] == 512
+
+
+def test_anthropic_provider_aceita_modelo_customizado() -> None:
+    """FB-M4 B6: parametro `modelo` permite Opus (default mantem Sonnet)."""
+    fake = _FakeAnthropicClient()
+    provider = AnthropicProvider(api_key="ant", client=fake, modelo="claude-opus-4-7")
+    provider.complete("oi")
+    assert fake.messages.ultima_chamada["model"] == "claude-opus-4-7"
+
+
+def test_anthropic_provider_modelo_default_e_sonnet() -> None:
+    """Compat: sem modelo explicito, continua usando claude-sonnet-4-6."""
+    fake = _FakeAnthropicClient()
+    provider = AnthropicProvider(api_key="ant", client=fake)
+    provider.complete("oi")
+    assert fake.messages.ultima_chamada["model"] == "claude-sonnet-4-6"

@@ -22,6 +22,15 @@ def _agent_callback() -> None:
 
 
 _DEFAULT_AGENTS_DIR = Path(__file__).resolve().parent.parent.parent / "agents"
+_DEFAULT_SKILLS_DIR = Path(__file__).resolve().parent.parent.parent / "prompts" / "skills"
+
+_SkillsDirOpt = Annotated[
+    Path,
+    typer.Option(
+        "--skills-dir",
+        help="Pasta de skills (usado com --resolve). Default: stella/prompts/skills.",
+    ),
+]
 
 _AgentsDirOpt = Annotated[
     Path,
@@ -49,6 +58,11 @@ def list_agents(agents_dir: _AgentsDirOpt = _DEFAULT_AGENTS_DIR) -> None:
 def show_agent(
     nome: Annotated[str, typer.Argument(help="Nome do agente")],
     agents_dir: _AgentsDirOpt = _DEFAULT_AGENTS_DIR,
+    resolve: Annotated[
+        bool,
+        typer.Option("--resolve", help="Verifica registro de cada recurso declarado"),
+    ] = False,
+    skills_dir: _SkillsDirOpt = _DEFAULT_SKILLS_DIR,
 ) -> None:
     """Mostra detalhes do manifest de um agente."""
     registry = AgentRegistry(agents_dir)
@@ -74,6 +88,23 @@ def show_agent(
     typer.echo(f"RAG:            {m.capacidades_externas.rag or '(nenhum)'}")
     if m.especialistas:
         typer.echo(f"Especialistas:  {', '.join(m.especialistas)}")
+
+    if resolve:
+        from stella.framework.errors import SkillNotFoundError
+        from stella.framework.resources.skills_registry import SkillsRegistry
+
+        typer.echo("\nResolução de recursos:")
+        sk_reg = SkillsRegistry(skills_dir)
+        for skill_id in m.capacidades_externas.skills:
+            try:
+                sk_reg.get(skill_id)
+                typer.echo(f"  ✓ skill '{skill_id}' registrada")
+            except SkillNotFoundError:
+                typer.echo(f"  ✗ skill '{skill_id}' FALTA em {skills_dir}")
+        for mcp_nome in m.capacidades_externas.mcps:
+            typer.echo(f"  ? MCP '{mcp_nome}' (precisa registrar em runtime)")
+        if m.capacidades_externas.rag:
+            typer.echo(f"  ? RAG '{m.capacidades_externas.rag}' (precisa registrar em runtime)")
 
 
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
