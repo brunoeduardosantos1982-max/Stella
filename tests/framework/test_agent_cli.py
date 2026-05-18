@@ -164,3 +164,80 @@ def test_agent_new_pasta_ja_existe_devolve_erro(tmp_path: Path) -> None:
         ],
     )
     assert result.exit_code != 0
+
+
+_MANIFEST_COM_SKILL = """\
+nome: agente_com_skill
+tipo: especialista
+setor: testes
+descricao: agente que declara uma skill especifica
+execucao: in_process
+modelo_minimo: gemma
+inputs_obrigatorios: []
+exemplo_uso: {}
+quando_usar: testes do CLI agent show resolve
+capacidades_externas:
+  skills: [minha-skill]
+vault_scope: "testes/**"
+"""
+
+
+def test_agent_show_resolve_marca_skill_existente(tmp_path: Path) -> None:
+    """--resolve verifica e marca skills registradas com checkmark."""
+    _escrever(tmp_path, "agente_com_skill", _MANIFEST_COM_SKILL)
+    skills_dir = tmp_path / "_skills"
+    skills_dir.mkdir()
+    (skills_dir / "minha-skill.md").write_text(
+        "---\nid: minha-skill\nnome: Minha\ndescricao: skill xpto\n"
+        "gatilhos: []\nmodelo_minimo: gemma\ntags: []\n---\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        agent_app,
+        [
+            "show",
+            "agente_com_skill",
+            "--agents-dir",
+            str(tmp_path),
+            "--resolve",
+            "--skills-dir",
+            str(skills_dir),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "minha-skill" in result.stdout
+    assert "registrada" in result.stdout
+
+
+def test_agent_show_resolve_marca_skill_faltando(tmp_path: Path) -> None:
+    """--resolve marca como FALTA quando skill nao esta no skills_dir."""
+    _escrever(tmp_path, "agente_com_skill", _MANIFEST_COM_SKILL)
+    skills_dir_vazia = tmp_path / "_skills_vazia"
+    skills_dir_vazia.mkdir()
+
+    result = runner.invoke(
+        agent_app,
+        [
+            "show",
+            "agente_com_skill",
+            "--agents-dir",
+            str(tmp_path),
+            "--resolve",
+            "--skills-dir",
+            str(skills_dir_vazia),
+        ],
+    )
+    assert result.exit_code == 0
+    assert "minha-skill" in result.stdout
+    assert "FALTA" in result.stdout
+
+
+def test_agent_show_sem_resolve_nao_carrega_skills(tmp_path: Path) -> None:
+    """Sem --resolve: comportamento antigo (so mostra strings declaradas)."""
+    _escrever(tmp_path, "agente_com_skill", _MANIFEST_COM_SKILL)
+
+    result = runner.invoke(agent_app, ["show", "agente_com_skill", "--agents-dir", str(tmp_path)])
+    assert result.exit_code == 0
+    assert "registrada" not in result.stdout
+    assert "FALTA" not in result.stdout
