@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -22,6 +23,10 @@ from stella.framework.tracking import TrackerProtocol
 # Profundidade máxima de cadeias de delegação (A → B → C → ...).
 # Acima disso, suspeita-se de loop infinito; framework cancela.
 MAX_DELEGATION_DEPTH = 5
+
+# ContextVar global de framework — acumula depth entre agentes diferentes
+# para detectar loops cross-agent (A→B→A→B...). FB-M4 I4.
+_delegation_depth_var: ContextVar[int] = ContextVar("stella.framework.delegation_depth", default=0)
 
 
 @dataclass
@@ -110,26 +115,30 @@ class Agent(ABC):
         self,
         agent_name: str,
         payload: dict[str, Any],
-        _depth: int = 0,
+        _depth: int | None = None,
     ) -> AgentOutput:
         """Coordenadores usam para chamar Especialistas via Registry.
 
         Args:
             agent_name: nome do agente alvo (deve estar no Registry).
             payload: dict passado para o `execute()` do agente alvo.
-            _depth: profundidade atual da cadeia de delegação. Incrementado
-                automaticamente. Levanta `DelegationDepthExceeded` se atingir
-                `MAX_DELEGATION_DEPTH` (proteção contra loops).
+            _depth: profundidade atual da cadeia. Se None (default), usa
+                `_delegation_depth_var` (ContextVar) que acumula entre agentes
+                diferentes — detecta loop cross-agent (A→B→A→B...). Se passado
+                explicitamente, sobrescreve a ContextVar (compat com testes
+                FB-M1 e uso avançado).
 
         Raises:
-            DelegationDepthExceeded: cadeia de delegação muito profunda.
-            RuntimeError: registry não foi injetado (FB-M2 implementa).
+            DelegationDepthExceeded: cadeia atingiu MAX_DELEGATION_DEPTH (5).
+            RuntimeError: registry não foi injetado.
             AgentNotFoundError: agent_name não está no registry.
         """
-        if _depth >= MAX_DELEGATION_DEPTH:
+        current = _depth if _depth is not None else _delegation_depth_var.get()
+
+        if current >= MAX_DELEGATION_DEPTH:
             raise DelegationDepthExceeded(
                 f"Cadeia de delegação excedeu profundidade {MAX_DELEGATION_DEPTH} "
-                f"ao tentar chamar '{agent_name}' (depth={_depth}). "
+                f"ao tentar chamar '{agent_name}' (depth={current}). "
                 "Suspeita de loop infinito — cancelando."
             )
 
@@ -139,9 +148,9 @@ class Agent(ABC):
                 "FB-M2 implementa a injeção via build_agent()."
             )
 
-        # Resolve via registry e invoca execute() no AgentClient retornado.
-        # Limitacao FB-M2: depth e local. Cross-agent loop detection ficou
-        # adiada (precisaria contextvars ou alterar assinatura de
-        # AgentClient.execute). Documentado em PLANO FB-M2 Task 8.
-        cliente = self._registry.get(agent_name)  # type: ignore[attr-defined]
-        return cliente.execute(payload)  # type: ignore[no-any-return]
+        token = _delegation_depth_var.set(current + 1)
+        try:
+            cliente = self._registry.get(agent_name)  # type: ignore[attr-defined]
+            return cliente.execute(payload)  # type: ignore[no-any-return]
+        finally:
+            _delegation_depth_var.reset(token)
