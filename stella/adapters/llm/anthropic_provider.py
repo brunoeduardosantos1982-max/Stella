@@ -15,15 +15,18 @@ from stella.adapters.llm.base import (
 )
 from stella.infra.usage_tracker import UsageRecord, UsageTracker, estimar_custo
 
-_MODELO = "claude-sonnet-4-6"
+_MODELO_DEFAULT = "claude-sonnet-4-6"
 _MAX_TOKENS_DEFAULT = 4096
 
 
 class AnthropicProvider(LLMProvider):
-    """Provedor LLM usando Claude Sonnet 4.6 via Anthropic.
+    """Provedor LLM usando modelos Claude via Anthropic.
 
     O parâmetro `client` permite injetar um dublê nos testes.
     A API Anthropic trata `system` como parâmetro separado, não como mensagem.
+
+    FB-M4: parametro `modelo` permite usar Sonnet, Opus ou qualquer outro
+    modelo Claude. Default mantem Sonnet para compat com M2.
     """
 
     def __init__(
@@ -32,10 +35,12 @@ class AnthropicProvider(LLMProvider):
         client: Any = None,
         max_tokens: int = _MAX_TOKENS_DEFAULT,
         tracker: UsageTracker | None = None,
+        modelo: str = _MODELO_DEFAULT,
     ) -> None:
         self._client = client or Anthropic(api_key=api_key)
         self._max_tokens = max_tokens
         self._tracker = tracker
+        self._modelo = modelo
 
     def complete(self, prompt: str) -> LLMResponse:
         return self.chat([Message(role="user", content=prompt)])
@@ -44,7 +49,7 @@ class AnthropicProvider(LLMProvider):
         system_parts = [m.content for m in messages if m.role == "system"]
         conversa = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
         kwargs = {
-            "model": _MODELO,
+            "model": self._modelo,
             "max_tokens": self._max_tokens,
             "messages": conversa,
         }
@@ -73,11 +78,11 @@ class AnthropicProvider(LLMProvider):
                 UsageRecord(
                     momento=datetime.now(),
                     provider="anthropic",
-                    modelo=_MODELO,
+                    modelo=self._modelo,
                     tokens_input=resp.usage.input_tokens,
                     tokens_output=resp.usage.output_tokens,
                     custo_usd=estimar_custo(
-                        _MODELO, resp.usage.input_tokens, resp.usage.output_tokens
+                        self._modelo, resp.usage.input_tokens, resp.usage.output_tokens
                     ),
                 )
             )
