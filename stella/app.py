@@ -1,9 +1,19 @@
+import logging
 from dataclasses import dataclass
 
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.gemma_nvidia import GemmaNvidiaProvider
 from stella.adapters.llm.router import LLMRouter
 from stella.adapters.vault.obsidian_vault import ObsidianVaultRepository
+from stella.framework.builder import FrameworkDeps, build_agent
+from stella.framework.manifest import validate_manifest_resources
+from stella.framework.quality.feedback import FeedbackLogger
+from stella.framework.quality.policies import ReviewPolicy
+from stella.framework.quality.reviewer import QualityReviewer
+from stella.framework.registry import AgentRegistry
+from stella.framework.resources.mcp_registry import MCPRegistry
+from stella.framework.resources.rag_registry import RAGRegistry
+from stella.framework.resources.skills_registry import SkillsRegistry
 from stella.infra.config import StellaConfig
 from stella.infra.usage_tracker import UsageTracker
 from stella.prompts.prompt_builder import PromptBuilder
@@ -11,11 +21,17 @@ from stella.usecases.atualizar_memoria import AtualizarMemoria
 from stella.usecases.capturar_ideia import CapturarIdeia
 from stella.usecases.responder_projeto import ResponderProjeto
 
+_logger = logging.getLogger("stella.framework")
+
 
 @dataclass
 class Stella:
-    """Container principal — todos os componentes da Stella prontos para uso."""
+    """Container principal — todos os componentes da Stella prontos para uso.
 
+    Campos M1+M2 (Sub-projeto Stella Fase 1) + FB-M4 (Framework Base integrado).
+    """
+
+    # M1+M2:
     vault: ObsidianVaultRepository
     gemma: GemmaNvidiaProvider
     anthropic: AnthropicProvider
@@ -26,11 +42,21 @@ class Stella:
     atualizar_memoria: AtualizarMemoria
     usage_tracker: UsageTracker
 
+    # FB-M4 (framework integrado):
+    opus: AnthropicProvider
+    skills_reg: SkillsRegistry
+    mcp_reg: MCPRegistry
+    rag_reg: RAGRegistry
+    registry: AgentRegistry
+    framework_deps: FrameworkDeps
+    quality_reviewer: QualityReviewer
+    feedback_logger: FeedbackLogger
+
 
 def build_stella(config: StellaConfig) -> Stella:
     """Monta toda a árvore de dependências da Stella a partir do config."""
     vault = ObsidianVaultRepository(vault_root=config.vault_path)
-    tracker = UsageTracker()  # default ~/.stella/usage/
+    tracker = UsageTracker()
 
     gemma = GemmaNvidiaProvider(
         api_key=config.nvidia_api_key.get_secret_value(),
@@ -40,16 +66,20 @@ def build_stella(config: StellaConfig) -> Stella:
         api_key=config.anthropic_api_key.get_secret_value(),
         tracker=tracker,
     )
+    # FB-M4 B6: provider Opus dedicado
+    opus = AnthropicProvider(
+        api_key=config.anthropic_api_key.get_secret_value(),
+        tracker=tracker,
+        modelo="claude-opus-4-7",
+    )
     router = LLMRouter(
         gemma=gemma,
         anthropic=anthropic,
+        opus=opus,
         default=config.modelo_padrao.value,
     )
     prompt_builder = PromptBuilder()
 
-    # Roteamento de modelos para os usecases:
-    # - CapturarIdeia: parse simples → Gemma (default low complexity)
-    # - ResponderProjeto: contexto pode ser grande → Sonnet (high complexity)
     capturar_ideia = CapturarIdeia(
         llm=router.select(complexity="low"),
         vault_repo=vault,
@@ -59,6 +89,37 @@ def build_stella(config: StellaConfig) -> Stella:
         vault_repo=vault,
     )
     atualizar_memoria = AtualizarMemoria(vault_repo=vault)
+
+    # FB-M4 C1: framework integration
+    skills_reg = SkillsRegistry(config.skills_dir)
+    mcp_reg = MCPRegistry()
+    rag_reg = RAGRegistry()
+    registry = AgentRegistry(config.agents_dir)
+
+    framework_deps = FrameworkDeps(
+        vault=vault,
+        llm=router,
+        skills_reg=skills_reg,
+        mcp_reg=mcp_reg,
+        rag_reg=rag_reg,
+        tracker=tracker,
+        logger=_logger,
+        registry=registry,
+    )
+    registry.bind_builder(lambda m: build_agent(m, framework_deps))
+
+    # I5: early warning sobre cross-refs faltando nos manifests descobertos
+    for manifest in registry.list_manifests():
+        for erro in validate_manifest_resources(manifest, framework_deps):
+            _logger.warning("Manifest %s: %s", manifest.nome, erro)
+
+    quality_reviewer = QualityReviewer(
+        llm=router,
+        vault=vault,
+        skills_reg=skills_reg,
+        policy=ReviewPolicy(),
+    )
+    feedback_logger = FeedbackLogger(vault=vault)
 
     return Stella(
         vault=vault,
@@ -70,4 +131,12 @@ def build_stella(config: StellaConfig) -> Stella:
         responder_projeto=responder_projeto,
         atualizar_memoria=atualizar_memoria,
         usage_tracker=tracker,
+        opus=opus,
+        skills_reg=skills_reg,
+        mcp_reg=mcp_reg,
+        rag_reg=rag_reg,
+        registry=registry,
+        framework_deps=framework_deps,
+        quality_reviewer=quality_reviewer,
+        feedback_logger=feedback_logger,
     )
