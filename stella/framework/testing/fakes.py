@@ -13,6 +13,7 @@ from typing import Any
 
 from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
 from stella.adapters.vault.base import Note, VaultRepository
+from stella.infra.usage_tracker import UsageRecord
 
 
 class FakeVault(VaultRepository):
@@ -143,29 +144,19 @@ class FakeRAG:
 
 
 class FakeTracker:
-    """UsageTracker fake — registra chamadas e soma custo."""
+    """UsageTracker fake — registra UsageRecords.
+
+    Satisfaz `stella.framework.tracking.TrackerProtocol` (Protocol estrutural).
+    """
 
     def __init__(self) -> None:
-        self.calls: list[dict[str, Any]] = []
+        self.records: list[UsageRecord] = []
 
-    def record(
-        self,
-        modelo: str,
-        tokens_input: int,
-        tokens_output: int,
-        custo_usd: float,
-    ) -> None:
-        self.calls.append(
-            {
-                "modelo": modelo,
-                "tokens_input": tokens_input,
-                "tokens_output": tokens_output,
-                "custo_usd": custo_usd,
-            }
-        )
+    def record(self, record: UsageRecord) -> None:
+        self.records.append(record)
 
     def total_usd(self) -> float:
-        return float(sum(c["custo_usd"] for c in self.calls))
+        return float(sum(r.custo_usd for r in self.records))
 
 
 class FakeLogger:
