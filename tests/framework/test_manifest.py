@@ -149,3 +149,98 @@ def test_load_manifest_campo_obrigatorio_faltando_levanta_manifest_error(
     )
     with pytest.raises(ManifestError, match="campo"):
         load_manifest(p)
+
+
+def _deps_minimas(tmp_path: Path):
+    """Helper: monta FrameworkDeps minimos para testar validate_manifest_resources."""
+    from stella.adapters.vault.obsidian_vault import ObsidianVaultRepository
+    from stella.framework.builder import FrameworkDeps
+    from stella.framework.registry import AgentRegistry
+    from stella.framework.resources.mcp_registry import MCPRegistry
+    from stella.framework.resources.rag_registry import RAGRegistry
+    from stella.framework.resources.skills_registry import SkillsRegistry
+
+    skills_dir = tmp_path / "skills"
+    skills_dir.mkdir(exist_ok=True)
+    vault_root = tmp_path / "vault"
+    vault_root.mkdir(exist_ok=True)
+    agents_dir = tmp_path / "agents"
+    agents_dir.mkdir(exist_ok=True)
+    return FrameworkDeps(
+        vault=ObsidianVaultRepository(vault_root),
+        llm=None,
+        skills_reg=SkillsRegistry(skills_dir),
+        mcp_reg=MCPRegistry(),
+        rag_reg=RAGRegistry(),
+        tracker=None,
+        logger=None,
+        registry=AgentRegistry(agents_dir),
+    )
+
+
+def _manifest_com_caps(**caps: Any) -> AgentManifest:
+    return AgentManifest(
+        nome="ag",
+        tipo="especialista",
+        setor="x",
+        descricao="agente teste validate",
+        execucao="in_process",
+        modelo_minimo="gemma",
+        inputs_obrigatorios=[],
+        exemplo_uso={},
+        quando_usar="apenas em testes do validate",
+        capacidades_externas=CapacidadesExternas(**caps),
+    )
+
+
+def test_validate_manifest_resources_ok_quando_tudo_existe(tmp_path: Path) -> None:
+    from stella.domain.conexao_mcp import ConexaoMCP
+    from stella.framework.manifest import validate_manifest_resources
+
+    deps = _deps_minimas(tmp_path)
+    skills_dir = tmp_path / "skills"
+    (skills_dir / "copy-pt.md").write_text(
+        "---\nid: copy-pt\nnome: Copy\ndescricao: skill\ngatilhos: []\nmodelo_minimo: gemma\ntags: []\n---\n",
+        encoding="utf-8",
+    )
+    # Reconstruir skills_reg para pegar o arquivo recém-criado
+    from stella.framework.resources.skills_registry import SkillsRegistry
+
+    deps.skills_reg = SkillsRegistry(skills_dir)
+    deps.mcp_reg.register(ConexaoMCP(nome="brave", tipo="http", endpoint="http://x"))
+
+    m = _manifest_com_caps(skills=["copy-pt"], mcps=["brave"])
+    assert validate_manifest_resources(m, deps) == []
+
+
+def test_validate_manifest_resources_skill_faltando_devolve_msg(tmp_path: Path) -> None:
+    from stella.framework.manifest import validate_manifest_resources
+
+    deps = _deps_minimas(tmp_path)
+    m = _manifest_com_caps(skills=["nao-existe"])
+    erros = validate_manifest_resources(m, deps)
+    assert len(erros) == 1
+    assert "nao-existe" in erros[0]
+    assert "skill" in erros[0].lower()
+
+
+def test_validate_manifest_resources_mcp_faltando_devolve_msg(tmp_path: Path) -> None:
+    from stella.framework.manifest import validate_manifest_resources
+
+    deps = _deps_minimas(tmp_path)
+    m = _manifest_com_caps(mcps=["mcp-x"])
+    erros = validate_manifest_resources(m, deps)
+    assert len(erros) == 1
+    assert "mcp-x" in erros[0]
+    assert "mcp" in erros[0].lower()
+
+
+def test_validate_manifest_resources_rag_faltando_devolve_msg(tmp_path: Path) -> None:
+    from stella.framework.manifest import validate_manifest_resources
+
+    deps = _deps_minimas(tmp_path)
+    m = _manifest_com_caps(rag="corpus-x")
+    erros = validate_manifest_resources(m, deps)
+    assert len(erros) == 1
+    assert "corpus-x" in erros[0]
+    assert "rag" in erros[0].lower()
