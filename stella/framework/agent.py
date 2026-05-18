@@ -18,6 +18,7 @@ from stella.domain.conexao_mcp import ConexaoMCP
 from stella.domain.skill import Skill
 from stella.framework.errors import DelegationDepthExceeded
 from stella.framework.manifest import AgentManifest
+from stella.framework.rag import RAGClient
 from stella.framework.tracking import TrackerProtocol
 
 # Profundidade máxima de cadeias de delegação (A → B → C → ...).
@@ -80,7 +81,7 @@ class Agent(ABC):
         llm: LLMRouter | None = None,
         skills: list[Skill] | None = None,
         mcps: list[ConexaoMCP] | None = None,
-        rag: object | None = None,
+        rag: RAGClient | None = None,
         tracker: TrackerProtocol | None = None,
         logger: logging.Logger | None = None,
         registry: object | None = None,

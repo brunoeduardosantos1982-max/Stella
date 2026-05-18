@@ -13,6 +13,7 @@ from typing import Any
 
 from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
 from stella.adapters.vault.base import Note, VaultRepository
+from stella.framework.rag import RAGClient
 from stella.infra.usage_tracker import UsageRecord
 
 
@@ -132,8 +133,11 @@ class FakeMCP:
 
 
 @dataclass
-class FakeRAG:
-    """Cliente RAG fake. Busca sempre devolve `docs` pre-determinados."""
+class FakeRAG(RAGClient):
+    """Cliente RAG fake. Busca sempre devolve `docs` pre-determinados.
+
+    FB-M4: herda RAGClient ABC para permitir tipagem estrita no framework.
+    """
 
     docs: list[dict[str, Any]] = field(default_factory=list)
     queries: list[str] = field(default_factory=list)
