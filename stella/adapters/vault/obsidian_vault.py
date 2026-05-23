@@ -79,8 +79,4 @@ class ObsidianVaultRepository(VaultRepository):
         # Import local para evitar ciclo na carga do modulo
         from stella.adapters.vault.scoped import ScopedVaultRepository
 
-        # Temporariamente: se receber lista, pega o primeiro padrão
-        # Task 2 estenderá ScopedVaultRepository para suportar múltiplos patterns
-        if isinstance(pattern, list):
-            pattern = pattern[0] if pattern else "*"
         return ScopedVaultRepository(self, pattern)
