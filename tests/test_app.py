@@ -77,3 +77,16 @@ def test_build_stella_opus_e_provider_anthropic_com_modelo_opus(monkeypatch, vau
     stella = build_stella(StellaConfig())
     assert isinstance(stella.opus, AnthropicProvider)
     assert stella.opus._modelo == "claude-opus-4-7"
+
+
+def test_build_stella_registra_mcp_postiz(monkeypatch, vault_tmp) -> None:
+    """Sub-projeto B: build_stella registra a ConexaoMCP 'postiz'."""
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(vault_tmp))
+
+    stella = build_stella(StellaConfig())
+    postiz = stella.mcp_reg.get("postiz")
+    assert postiz.nome == "postiz"
+    assert "api.postiz.com" in postiz.endpoint
+    assert postiz.category == "automation"

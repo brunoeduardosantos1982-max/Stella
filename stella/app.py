@@ -5,6 +5,7 @@ from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.gemma_nvidia import GemmaNvidiaProvider
 from stella.adapters.llm.router import LLMRouter
 from stella.adapters.vault.obsidian_vault import ObsidianVaultRepository
+from stella.domain.conexao_mcp import ConexaoMCP
 from stella.framework.builder import FrameworkDeps, build_agent
 from stella.framework.manifest import validate_manifest_resources
 from stella.framework.quality.feedback import FeedbackLogger
@@ -93,6 +94,14 @@ def build_stella(config: StellaConfig) -> Stella:
     # FB-M4 C1: framework integration
     skills_reg = SkillsRegistry(config.skills_dir)
     mcp_reg = MCPRegistry()
+    mcp_reg.register(
+        ConexaoMCP(
+            nome="postiz",
+            tipo="rest-api",
+            endpoint="https://api.postiz.com/public/v1",
+            category="automation",
+        )
+    )
     rag_reg = RAGRegistry()
     registry = AgentRegistry(config.agents_dir)
 
