@@ -127,6 +127,29 @@ def pergunta(
         raise typer.Exit(code=1) from e
 
 
+@app.command()
+def publicar() -> None:
+    """Publica os posts da fila (C04 Claude Obsidian/Stella-publicacao/fila/)."""
+    cfg = StellaConfig()
+    stella = _build_stella_para_cli()
+    try:
+        cliente = stella.registry.get("agente_publicador")
+        saida = cliente.execute(
+            {
+                "modo": cfg.publicacao_modo,
+                "postiz_token": cfg.postiz_token.get_secret_value(),
+            }
+        )
+    except FrameworkError as e:
+        typer.echo(_traduzir_erro_jarvis(e), err=True)
+        raise typer.Exit(code=1) from e
+
+    for linha in saida.mensagens:
+        typer.echo(linha)
+    if not saida.sucesso:
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     """Entry point declarado em pyproject.toml."""
     app()
