@@ -77,6 +77,24 @@ def test_registry_pasta_sem_manifest_e_ignorada_com_warning(tmp_path: Path) -> N
     assert reg.list_nomes() == ["agente_a"]
 
 
+def test_registry_ignora_pycache_e_pastas_internas_sem_warning(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Pastas internas do Python (__pycache__, .git, etc) não devem gerar warning."""
+    import logging
+
+    _escrever_manifest(tmp_path, "agente_a", _MANIFEST_INPROC)
+    (tmp_path / "__pycache__").mkdir()
+    (tmp_path / ".cache").mkdir()
+
+    with caplog.at_level(logging.WARNING, logger="stella.framework.registry"):
+        reg = AgentRegistry(tmp_path)
+
+    assert reg.list_nomes() == ["agente_a"]
+    avisos = [r.message for r in caplog.records if r.levelno >= logging.WARNING]
+    assert all("__pycache__" not in m and ".cache" not in m for m in avisos), avisos
+
+
 def test_registry_manifest_invalido_e_pulado(tmp_path: Path) -> None:
     _escrever_manifest(tmp_path, "agente_a", _MANIFEST_INPROC)
     _escrever_manifest(tmp_path, "agente_quebrado", "nome: x\ntipo: especialista\nsetor: x\n")

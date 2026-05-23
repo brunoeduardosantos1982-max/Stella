@@ -39,6 +39,10 @@ class AgentRegistry:
         if not self._dir.exists():
             return
         for pasta in sorted(p for p in self._dir.iterdir() if p.is_dir()):
+            # Pular pastas internas (__pycache__, .git, .venv, etc) sem warning —
+            # nunca foram agentes, são artefatos de tooling.
+            if pasta.name.startswith(("__", ".")):
+                continue
             manifest_path = pasta / "manifest.yaml"
             if not manifest_path.exists():
                 _logger.warning("Pasta sem manifest.yaml ignorada: %s", pasta.name)

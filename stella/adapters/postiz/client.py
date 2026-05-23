@@ -7,6 +7,7 @@ Qualquer falha (rede, HTTP 4xx/5xx, resposta malformada) vira `PostizError`.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import httpx
@@ -20,6 +21,8 @@ from stella.adapters.postiz.base import (
 
 _API_BASE_PADRAO = "https://api.postiz.com/public/v1"
 _TIMEOUT_S = 30.0
+
+_logger = logging.getLogger(__name__)
 
 
 class HttpPostizClient:
@@ -95,6 +98,9 @@ class HttpPostizClient:
             ) from e
         except httpx.HTTPError as e:
             raise PostizError(f"falha ao agendar post no Postiz: {e}") from e
+        # Log do body completo da resposta — ajuda a evoluir _extrair_post_url
+        # conforme aprendemos o formato real (a doc pública do Postiz não documenta).
+        _logger.info("Postiz POST /posts resposta: %s", body)
         return PostizResultado(post_url=_extrair_post_url(body))
 
 
