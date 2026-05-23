@@ -30,6 +30,7 @@ class FakeVault(VaultRepository):
         notes: dict[str, tuple[str, dict[str, Any]]] | None = None,
     ) -> None:
         self._store: dict[str, tuple[str, dict[str, Any], datetime]] = {}
+        self._binarios: dict[str, bytes] = {}
         if notes:
             agora = datetime.now()
             for path, (content, fm) in notes.items():
@@ -65,6 +66,15 @@ class FakeVault(VaultRepository):
 
     def note_exists(self, path: str) -> bool:
         return path in self._store
+
+    def read_binary(self, path: str) -> bytes:
+        if path not in self._binarios:
+            raise FileNotFoundError(f"Arquivo binário não encontrado: {path}")
+        return self._binarios[path]
+
+    def write_binary(self, path: str, dados: bytes) -> None:
+        """Helper de teste — armazena bytes para read_binary recuperar."""
+        self._binarios[path] = dados
 
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         cutoff = since.timestamp() if since is not None else None

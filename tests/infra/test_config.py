@@ -102,3 +102,66 @@ def test_config_tem_skills_dir_default_apontando_para_prompts_skills(monkeypatch
     cfg = StellaConfig()
     assert cfg.skills_dir.name == "skills"
     assert "prompts" in str(cfg.skills_dir)
+
+
+def test_config_tem_postiz_token(monkeypatch, tmp_path):
+    """FB-Sub-B: StellaConfig expõe postiz_token (default vazio)."""
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+    monkeypatch.setenv("STELLA_POSTIZ_TOKEN", "pos_abc123")
+
+    from stella.infra.config import StellaConfig
+
+    cfg = StellaConfig()
+    assert cfg.postiz_token.get_secret_value() == "pos_abc123"
+
+
+def test_config_postiz_token_default_vazio(monkeypatch, tmp_path):
+    # chdir para tmp_path isola do `.env` real do projeto (pydantic-settings
+    # carrega env_file relativo ao CWD).
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+
+    from stella.infra.config import StellaConfig
+
+    cfg = StellaConfig()
+    assert cfg.postiz_token.get_secret_value() == ""
+
+
+def test_config_publicacao_modo_default_semi_auto(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+
+    from stella.infra.config import StellaConfig
+
+    cfg = StellaConfig()
+    assert cfg.publicacao_modo == "semi-auto"
+
+
+def test_config_publicacao_modo_aceita_auto(monkeypatch, tmp_path):
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+    monkeypatch.setenv("STELLA_PUBLICACAO_MODO", "auto")
+
+    from stella.infra.config import StellaConfig
+
+    cfg = StellaConfig()
+    assert cfg.publicacao_modo == "auto"
+
+
+def test_config_publicacao_modo_invalido_levanta_erro(monkeypatch, tmp_path):
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+    monkeypatch.setenv("STELLA_PUBLICACAO_MODO", "turbo")
+
+    from stella.infra.config import StellaConfig
+
+    with pytest.raises(ValidationError):
+        StellaConfig()

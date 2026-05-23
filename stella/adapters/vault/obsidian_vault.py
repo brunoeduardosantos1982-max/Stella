@@ -56,6 +56,12 @@ class ObsidianVaultRepository(VaultRepository):
         # is_file() em vez de exists() para distinguir nota de diretório homônimo
         return self._full_path(path).is_file()
 
+    def read_binary(self, path: str) -> bytes:
+        full = self._full_path(path)
+        if not full.is_file():
+            raise FileNotFoundError(f"Arquivo não encontrado: {path}")
+        return full.read_bytes()
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         cutoff = since.timestamp() if since is not None else None
 

@@ -77,8 +77,7 @@ class QualityReviewer:
         # para nao travar o Bruno indefinidamente.
         if veredicto == "refazer" and tentativa >= 2:
             aviso = (
-                f"Senhor, {agent_manifest.nome} tentou 2x e ainda esta fora do padrao: "
-                f"{feedback}"
+                f"Senhor, {agent_manifest.nome} tentou 2x e ainda esta fora do padrao: {feedback}"
             )
             return ReviewResult(
                 veredicto="aceitar_com_aviso",

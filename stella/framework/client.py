@@ -89,12 +89,11 @@ class HttpAgentClient(AgentClient):
     ) -> None:
         if manifest.execucao != "http":
             raise ValueError(
-                f"HttpAgentClient requer manifest.execucao='http', "
-                f"recebeu '{manifest.execucao}'"
+                f"HttpAgentClient requer manifest.execucao='http', recebeu '{manifest.execucao}'"
             )
         if not manifest.endpoint:
             raise ValueError(
-                f"HttpAgentClient requer manifest.endpoint preenchido " f"(nome={manifest.nome})"
+                f"HttpAgentClient requer manifest.endpoint preenchido (nome={manifest.nome})"
             )
         self._manifest = manifest
         self._http = httpx_client or httpx.Client()
@@ -142,5 +141,5 @@ class HttpAgentClient(AgentClient):
                 )
         except httpx.HTTPError as e:
             raise AgentUnavailableError(
-                f"Agent HTTP '{self._manifest.nome}' offline " f"({self._manifest.endpoint}): {e}"
+                f"Agent HTTP '{self._manifest.nome}' offline ({self._manifest.endpoint}): {e}"
             ) from e

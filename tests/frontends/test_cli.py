@@ -134,3 +134,55 @@ def test_traduzir_framework_error_generico() -> None:
     msg = _traduzir_erro_jarvis(erro)
     assert msg.startswith("Senhor,")
     assert "algo deu errado" in msg
+
+
+def test_publicar_aciona_agente_publicador(monkeypatch) -> None:
+    from stella.framework.agent import AgentOutput
+
+    fake_cliente = MagicMock()
+    fake_cliente.execute.return_value = AgentOutput(
+        resultado={"publicados": ["fila/p1.md"]},
+        sucesso=True,
+        mensagens=["1 post(s) agendado(s), 0 com erro, 0 ignorado(s)."],
+    )
+    fake_stella = MagicMock()
+    fake_stella.registry.get.return_value = fake_cliente
+
+    fake_cfg = MagicMock()
+    fake_cfg.publicacao_modo = "semi-auto"
+    fake_cfg.postiz_token.get_secret_value.return_value = "tok-123"
+
+    monkeypatch.setattr("stella.frontends.cli._build_stella_para_cli", lambda: fake_stella)
+    monkeypatch.setattr("stella.frontends.cli.StellaConfig", lambda: fake_cfg)
+
+    result = runner.invoke(app, ["publicar"])
+
+    assert result.exit_code == 0
+    assert "1 post(s) agendado" in result.stdout
+    fake_stella.registry.get.assert_called_once_with("agente_publicador")
+    payload = fake_cliente.execute.call_args.args[0]
+    assert payload["modo"] == "semi-auto"
+    assert payload["postiz_token"] == "tok-123"
+
+
+def test_publicar_sai_com_erro_quando_output_falha(monkeypatch) -> None:
+    from stella.framework.agent import AgentOutput
+
+    fake_cliente = MagicMock()
+    fake_cliente.execute.return_value = AgentOutput(
+        resultado={}, sucesso=False, mensagens=["token do Postiz ausente"]
+    )
+    fake_stella = MagicMock()
+    fake_stella.registry.get.return_value = fake_cliente
+
+    fake_cfg = MagicMock()
+    fake_cfg.publicacao_modo = "semi-auto"
+    fake_cfg.postiz_token.get_secret_value.return_value = ""
+
+    monkeypatch.setattr("stella.frontends.cli._build_stella_para_cli", lambda: fake_stella)
+    monkeypatch.setattr("stella.frontends.cli.StellaConfig", lambda: fake_cfg)
+
+    result = runner.invoke(app, ["publicar"])
+
+    assert result.exit_code == 1
+    assert "token do Postiz ausente" in result.stdout

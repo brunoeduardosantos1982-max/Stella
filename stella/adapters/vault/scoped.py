@@ -53,6 +53,10 @@ class ScopedVaultRepository(VaultRepository):
         self._check(path)
         return self._inner.note_exists(path)
 
+    def read_binary(self, path: str) -> bytes:
+        self._check(path)
+        return self._inner.read_binary(path)
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         """Combina o glob do scope com o pattern do agente — devolve apenas
         notas que satisfazem AMBOS (intersecao via filtro no resultado)."""

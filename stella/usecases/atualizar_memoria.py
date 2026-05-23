@@ -43,7 +43,5 @@ class AtualizarMemoria:
     def _formatar_bloco(r: RegistroInteracao) -> str:
         hora = r.momento.strftime("%H:%M")
         return (
-            f"## {hora} — {r.usecase}\n"
-            f"> Bruno: {r.input_usuario}\n"
-            f"> Stella: {r.resposta_stella}\n"
+            f"## {hora} — {r.usecase}\n> Bruno: {r.input_usuario}\n> Stella: {r.resposta_stella}\n"
         )

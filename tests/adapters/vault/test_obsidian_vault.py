@@ -143,3 +143,18 @@ def test_scan_recursive_filtra_por_since(tmp_path) -> None:
 def test_scan_recursive_vazio_quando_nada_bate(tmp_path) -> None:
     repo = ObsidianVaultRepository(tmp_path)
     assert repo.scan_recursive("nao-existe/**/*.md") == []
+
+
+def test_read_binary_le_arquivo_de_imagem(tmp_path) -> None:
+    conteudo = b"\x89PNG\r\n\x1a\n-fake-image-bytes"
+    (tmp_path / "A03").mkdir()
+    (tmp_path / "A03" / "foto.png").write_bytes(conteudo)
+
+    repo = ObsidianVaultRepository(vault_root=tmp_path)
+    assert repo.read_binary("A03/foto.png") == conteudo
+
+
+def test_read_binary_arquivo_inexistente_levanta(tmp_path) -> None:
+    repo = ObsidianVaultRepository(vault_root=tmp_path)
+    with pytest.raises(FileNotFoundError):
+        repo.read_binary("nao-existe.png")
