@@ -43,3 +43,7 @@ class StellaConfig(BaseSettings):
     # FB-Sub-B: integração de publicação em redes sociais
     postiz_token: SecretStr = Field(default=SecretStr(""))
     publicacao_modo: Literal["semi-auto", "auto"] = "semi-auto"
+
+    # AM-M1: chaves de pesquisa web (cascata Brave→Perplexity)
+    brave_api_key: SecretStr = Field(default=SecretStr(""))
+    perplexity_api_key: SecretStr = Field(default=SecretStr(""))
