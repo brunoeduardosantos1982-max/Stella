@@ -211,6 +211,11 @@ class Agent(BaseAgent):
             dados = vault.read_binary(f"{_PASTA_FILA}/{imagem}")
             midias.append(postiz.upload_imagem(dados, str(imagem)))
 
+        # Postiz exige settings.post_type ∈ {"post", "story"}. Mapeamos a partir
+        # do `tipo-post` do frontmatter (estatico/carrossel → post; story → story).
+        tipo_post_raw = str(fm.get("tipo-post", "estatico")).lower().strip()
+        post_type = "story" if tipo_post_raw == "story" else "post"
+
         urls: list[str] = []
         for plataforma in plataformas:
             if plataforma not in canais:
@@ -221,6 +226,7 @@ class Agent(BaseAgent):
                     conteudo=conteudo,
                     data_utc=data_utc,
                     plataforma=plataforma,
+                    post_type=post_type,
                     midias=midias,
                 )
             )

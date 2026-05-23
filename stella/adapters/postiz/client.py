@@ -49,6 +49,10 @@ class HttpPostizClient:
             )
             resp.raise_for_status()
             body: Any = resp.json()
+        except httpx.HTTPStatusError as e:
+            raise PostizError(
+                f"falha ao enviar imagem '{nome_arquivo}' ao Postiz: {e} — body: {e.response.text}"
+            ) from e
         except httpx.HTTPError as e:
             raise PostizError(f"falha ao enviar imagem '{nome_arquivo}' ao Postiz: {e}") from e
         if not isinstance(body, dict) or "id" not in body or "path" not in body:
@@ -70,7 +74,10 @@ class HttpPostizClient:
                             "image": [{"id": m.id, "path": m.path} for m in agendamento.midias],
                         }
                     ],
-                    "settings": {"__type": agendamento.plataforma},
+                    "settings": {
+                        "__type": agendamento.plataforma,
+                        "post_type": agendamento.post_type,
+                    },
                 }
             ],
         }
@@ -82,6 +89,10 @@ class HttpPostizClient:
             )
             resp.raise_for_status()
             body: Any = resp.json()
+        except httpx.HTTPStatusError as e:
+            raise PostizError(
+                f"falha ao agendar post no Postiz: {e} — body: {e.response.text}"
+            ) from e
         except httpx.HTTPError as e:
             raise PostizError(f"falha ao agendar post no Postiz: {e}") from e
         return PostizResultado(post_url=_extrair_post_url(body))

@@ -30,6 +30,7 @@ class PostizAgendamento:
     conteudo: str
     data_utc: str
     plataforma: str = "instagram"
+    post_type: str = "post"
     midias: list[PostizMidia] = field(default_factory=list)
 
 

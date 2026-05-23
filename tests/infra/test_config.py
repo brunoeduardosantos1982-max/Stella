@@ -118,6 +118,9 @@ def test_config_tem_postiz_token(monkeypatch, tmp_path):
 
 
 def test_config_postiz_token_default_vazio(monkeypatch, tmp_path):
+    # chdir para tmp_path isola do `.env` real do projeto (pydantic-settings
+    # carrega env_file relativo ao CWD).
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
     monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
     monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
@@ -129,6 +132,7 @@ def test_config_postiz_token_default_vazio(monkeypatch, tmp_path):
 
 
 def test_config_publicacao_modo_default_semi_auto(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
     monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
     monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))

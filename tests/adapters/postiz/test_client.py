@@ -69,6 +69,31 @@ def test_agendar_post_monta_payload_correto() -> None:
     assert post["value"][0]["content"] == "legenda"
     assert post["value"][0]["image"] == [{"id": "img-9", "path": "/up/x.png"}]
     assert post["settings"]["__type"] == "instagram"
+    assert post["settings"]["post_type"] == "post"
+
+
+def test_agendar_post_story_envia_post_type_story() -> None:
+    capturado: dict[str, object] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        import json
+
+        capturado["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"id": "story-1"})
+
+    client = _client(handler)
+    ag = PostizAgendamento(
+        canal_id="canal-1",
+        conteudo="legenda",
+        data_utc="2026-05-25T12:00:00.000Z",
+        plataforma="instagram",
+        post_type="story",
+    )
+    client.agendar_post(ag)
+
+    body = capturado["body"]
+    assert isinstance(body, dict)
+    assert body["posts"][0]["settings"]["post_type"] == "story"
 
 
 def test_agendar_post_http_erro_levanta_postiz_error() -> None:
