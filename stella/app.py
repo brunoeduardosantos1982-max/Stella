@@ -102,6 +102,16 @@ def build_stella(config: StellaConfig) -> Stella:
             category="automation",
         )
     )
+    # AM-M1 Task 4: Brave Search MCP (primário da cascata de pesquisa)
+    if config.brave_api_key.get_secret_value():
+        mcp_reg.register(
+            ConexaoMCP(
+                nome="brave-search",
+                tipo="rest-api",
+                endpoint="https://api.search.brave.com/res/v1/web/search",
+                category="research",
+            )
+        )
     rag_reg = RAGRegistry()
     registry = AgentRegistry(config.agents_dir)
 
