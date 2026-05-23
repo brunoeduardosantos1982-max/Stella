@@ -1,0 +1,20 @@
+nome: agente_publicador
+tipo: especialista
+setor: publicacao
+descricao: "Publica posts prontos da fila (C04 Claude Obsidian/Stella-publicacao/fila/) nas redes sociais via Postiz. Multi-marca, Instagram primeiro, com aprovacao humana (modo semi-auto) ou automatica (modo auto)."
+execucao: in_process
+modelo_minimo: gemma
+
+inputs_obrigatorios: []
+exemplo_uso:
+  modo: "semi-auto"
+quando_usar: "publicar conteudo aprovado nas redes sociais de qualquer marca do Bruno"
+
+capacidades_externas:
+  skills: []
+  mcps: [postiz]
+  rag: null
+
+vault_scope: "C04 Claude Obsidian/Stella-publicacao/**"
+
+especialistas: []
