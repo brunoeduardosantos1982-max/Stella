@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -38,3 +39,7 @@ class StellaConfig(BaseSettings):
     # FB-M4: paths usados pelo framework multi-agente
     agents_dir: Path = Field(default_factory=lambda: _pacote_root() / "agents")
     skills_dir: Path = Field(default_factory=lambda: _pacote_root() / "prompts" / "skills")
+
+    # FB-Sub-B: integração de publicação em redes sociais
+    postiz_token: SecretStr = Field(default=SecretStr(""))
+    publicacao_modo: Literal["semi-auto", "auto"] = "semi-auto"
