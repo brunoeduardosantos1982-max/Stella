@@ -63,8 +63,15 @@ class ScopedVaultRepository(VaultRepository):
         bruto = self._inner.scan_recursive(pattern, since=since)
         return [n for n in bruto if _glob_match(n.path.replace("\\", "/"), self._pattern)]
 
-    def scoped(self, pattern: str) -> VaultRepository:
-        """Permite encadear: vault.scoped(A).scoped(B). Ambos validam."""
+    def scoped(self, pattern: str | list[str]) -> VaultRepository:
+        """Permite encadear: vault.scoped(A).scoped(B). Ambos validam.
+
+        Task 2 estenderá para suportar múltiplos patterns. Por enquanto,
+        se receber lista, usa o primeiro padrão.
+        """
+        # Temporariamente: se receber lista, pega o primeiro padrão
+        if isinstance(pattern, list):
+            pattern = pattern[0] if pattern else "*"
         return ScopedVaultRepository(self, pattern)
 
 
