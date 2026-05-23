@@ -112,6 +112,16 @@ def build_stella(config: StellaConfig) -> Stella:
                 category="research",
             )
         )
+    # AM-M1 Task 5: Perplexity MCP (fallback da cascata de pesquisa)
+    if config.perplexity_api_key.get_secret_value():
+        mcp_reg.register(
+            ConexaoMCP(
+                nome="perplexity",
+                tipo="rest-api",
+                endpoint="https://api.perplexity.ai/chat/completions",
+                category="research",
+            )
+        )
     rag_reg = RAGRegistry()
     registry = AgentRegistry(config.agents_dir)
 
