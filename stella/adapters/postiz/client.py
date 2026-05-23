@@ -105,11 +105,17 @@ class HttpPostizClient:
 
 
 def _extrair_post_url(body: Any) -> str | None:
-    """Extrai uma referência do post da resposta do Postiz (formato varia)."""
+    """Extrai uma referência do post da resposta do Postiz.
+
+    Prioridade: `releaseURL` (URL pública no Instagram/etc, preenchida após
+    publicação) → `postUrl`/`url` (variações) → `id` (ID interno do Postiz,
+    fallback para posts ainda em fila/agendados).
+    """
     if isinstance(body, list) and body:
         body = body[0]
     if isinstance(body, dict):
-        for chave in ("postUrl", "url", "id"):
-            if chave in body:
-                return str(body[chave])
+        for chave in ("releaseURL", "postUrl", "url", "id"):
+            valor = body.get(chave)
+            if valor:
+                return str(valor)
     return None

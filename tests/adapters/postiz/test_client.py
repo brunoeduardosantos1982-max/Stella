@@ -72,6 +72,41 @@ def test_agendar_post_monta_payload_correto() -> None:
     assert post["settings"]["post_type"] == "post"
 
 
+def test_agendar_post_prioriza_release_url_quando_publicado() -> None:
+    """releaseURL (URL pública) tem prioridade sobre id (interno) quando ambos
+    estão na resposta — caso 'state: PUBLISHED' do Postiz."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "id": "cmpinqsw902t2mm0y4k7h2750",
+                "releaseURL": "https://www.instagram.com/p/DYsPfGLmHEl/",
+                "state": "PUBLISHED",
+            },
+        )
+
+    client = _client(handler)
+    ag = PostizAgendamento(canal_id="c", conteudo="x", data_utc="2026-05-25T12:00:00.000Z")
+    resultado = client.agendar_post(ag)
+    assert resultado.post_url == "https://www.instagram.com/p/DYsPfGLmHEl/"
+
+
+def test_agendar_post_cai_para_id_quando_release_url_ausente() -> None:
+    """Posts ainda em fila não têm releaseURL — cai pro id do Postiz."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"id": "cmpinqsw902t2mm0y4k7h2750", "releaseURL": None, "state": "QUEUE"},
+        )
+
+    client = _client(handler)
+    ag = PostizAgendamento(canal_id="c", conteudo="x", data_utc="2026-05-25T12:00:00.000Z")
+    resultado = client.agendar_post(ag)
+    assert resultado.post_url == "cmpinqsw902t2mm0y4k7h2750"
+
+
 def test_agendar_post_story_envia_post_type_story() -> None:
     capturado: dict[str, object] = {}
 
