@@ -98,7 +98,7 @@ def load_manifest(path: Path) -> AgentManifest:
         return AgentManifest(**dados)
     except ValidationError as e:
         raise ManifestError(
-            f"Manifest inválido em {path}: campo ou valor não atende ao schema. " f"Detalhe: {e}"
+            f"Manifest inválido em {path}: campo ou valor não atende ao schema. Detalhe: {e}"
         ) from e
 
 
