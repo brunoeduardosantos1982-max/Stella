@@ -78,3 +78,9 @@ class VaultRepository(ABC):
         escopo declarado em seu manifest (manifest.vault_scope).
         """
         ...
+
+    @abstractmethod
+    def read_binary(self, path: str) -> bytes:
+        """Lê um arquivo binário do vault (ex: imagem). Levanta FileNotFoundError
+        se não existir."""
+        ...

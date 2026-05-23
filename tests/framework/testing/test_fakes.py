@@ -240,3 +240,15 @@ def test_fake_logger_captura_mensagens_por_nivel() -> None:
         ("WARNING", "mensagem warn"),
         ("ERROR", "mensagem erro"),
     ]
+
+
+def test_fake_vault_read_binary() -> None:
+    v = FakeVault()
+    v.write_binary("imgs/foto.png", b"bytes-da-imagem")
+    assert v.read_binary("imgs/foto.png") == b"bytes-da-imagem"
+
+
+def test_fake_vault_read_binary_inexistente_levanta() -> None:
+    v = FakeVault()
+    with pytest.raises(FileNotFoundError):
+        v.read_binary("nao-existe.png")
