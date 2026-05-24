@@ -1,0 +1,25 @@
+nome: copywriter
+tipo: especialista
+setor: marketing
+descricao: "Produz copy completa (legenda + texto de slides + hashtags + rationale) para qualquer marca a partir de um knowledge_pack e uma pauta."
+execucao: in_process
+modelo_minimo: sonnet
+
+inputs_obrigatorios:
+  - knowledge_pack
+  - pauta
+
+exemplo_uso: {}
+quando_usar: "produzir copy de post Instagram (carrossel ou legenda) para qualquer marca"
+
+capacidades_externas:
+  skills:
+    - copywriting-engajamento-ptbr
+    - carrossel-instagram-ia
+    - estrategia-hashtags
+  mcps: []
+  rag: null
+
+vault_scope: "C04 Claude Obsidian/outputs/marketing-team/copywriter/**"
+
+especialistas: []
