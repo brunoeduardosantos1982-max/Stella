@@ -1,0 +1,28 @@
+nome: designer
+tipo: especialista
+setor: marketing
+descricao: "Produz o visual (PNG) de um post a partir da copy e do knowledge_pack da marca. Escolhe template, preenche e renderiza para 1080x1350."
+execucao: in_process
+modelo_minimo: sonnet
+
+inputs_obrigatorios:
+  - knowledge_pack
+  - pauta
+  - copy
+
+exemplo_uso: {}
+quando_usar: "criar o visual/criativo de um post Instagram a partir de copy já aprovada"
+
+capacidades_externas:
+  skills:
+    - composicao-visual-social-2026
+    - hierarquia-informacional-feed
+    - cores-contraste-acessibilidade
+    - selecao-template-por-conteudo
+    - microcopy-visual
+  mcps: []
+  rag: null
+
+vault_scope: "C04 Claude Obsidian/outputs/marketing-team/designer/**"
+
+especialistas: []
