@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 import yaml
 
@@ -29,6 +29,8 @@ class AutoQA:
     """Aplica o checklist do briefing à legenda; ciclo: refazer 1x → aceitar com aviso."""
 
     llm: LLMProvider
+    _last_copy_qa: ResultadoQA | None = field(default=None, init=False, repr=False)
+    _last_visual_qa: ResultadoQA | None = field(default=None, init=False, repr=False)
 
     def revisar(
         self,
@@ -37,40 +39,102 @@ class AutoQA:
         knowledge: dict[str, str],
         tentativa: int,
     ) -> ResultadoQA:
-        prompt = self._montar_prompt(post, knowledge)
-        resposta = self.llm.complete(prompt).texto
+        resultado = self._avaliar(self._montar_prompt(post, knowledge))
 
+        if resultado.veredicto == "aprovado":
+            return resultado
+
+        # refazer na 2ª tentativa → aceito_com_aviso
+        if tentativa >= 2:
+            return ResultadoQA(
+                veredicto="aceito_com_aviso",
+                motivo=resultado.motivo,
+                aviso=resultado.motivo,
+            )
+        return resultado
+
+    def aprova_copy(self, *, copy: dict[str, Any], knowledge_pack: dict[str, Any]) -> bool:
+        """Retorna True se a copy passou no QA. Armazena resultado em cache."""
+        self._last_copy_qa = self._avaliar(self._montar_prompt_copy(copy, knowledge_pack))
+        return self._last_copy_qa.veredicto == "aprovado"
+
+    def feedback_copy(self, *, copy: dict[str, Any], knowledge_pack: dict[str, Any]) -> str:
+        """Retorna motivo do QA. Reusa cache de aprova_copy quando disponível."""
+        if self._last_copy_qa is None:
+            self._last_copy_qa = self._avaliar(self._montar_prompt_copy(copy, knowledge_pack))
+        if self._last_copy_qa.veredicto == "aprovado":
+            return ""
+        return self._last_copy_qa.motivo
+
+    def aprova_visual(self, *, copy: dict[str, Any], designer_resultado: dict[str, Any]) -> bool:
+        """Retorna True se o visual passou no QA. Armazena resultado em cache."""
+        self._last_visual_qa = self._avaliar(self._montar_prompt_visual(copy, designer_resultado))
+        return self._last_visual_qa.veredicto == "aprovado"
+
+    def feedback_visual(self, *, copy: dict[str, Any], designer_resultado: dict[str, Any]) -> str:
+        """Retorna motivo do QA visual. Reusa cache de aprova_visual quando disponível."""
+        if self._last_visual_qa is None:
+            self._last_visual_qa = self._avaliar(
+                self._montar_prompt_visual(copy, designer_resultado)
+            )
+        if self._last_visual_qa.veredicto == "aprovado":
+            return ""
+        return self._last_visual_qa.motivo
+
+    def _avaliar(self, prompt: str) -> ResultadoQA:
+        """Chama o LLM e parseia a resposta YAML em ResultadoQA."""
+        resposta = self.llm.complete(prompt).texto
         try:
             dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
         except yaml.YAMLError:
             dados = {}
         if not isinstance(dados, dict):
             dados = {}
-
-        # Fail-open: se não tem chave "veredicto", trata como parse inválido
         if "veredicto" not in dados:
             return ResultadoQA(
                 veredicto="aprovado",
-                aviso="AutoQA: resposta do LLM não pôde ser parseada (YAML inválido); aprovando por default",
+                aviso="AutoQA: resposta não parseável; aprovando por default",
             )
-
         veredicto_raw = str(dados.get("veredicto", "aprovado")).strip().lower()
         motivo = str(dados.get("motivo", ""))
-
         if veredicto_raw == "aprovado":
             return ResultadoQA(veredicto="aprovado", motivo=motivo)
+        return ResultadoQA(veredicto="refazer", motivo=motivo)
 
-        if veredicto_raw == "refazer":
-            if tentativa >= 2:
-                return ResultadoQA(
-                    veredicto="aceito_com_aviso",
-                    motivo=motivo,
-                    aviso=motivo,
-                )
-            return ResultadoQA(veredicto="refazer", motivo=motivo)
+    def _montar_prompt_copy(self, copy: dict[str, Any], knowledge_pack: dict[str, Any]) -> str:
+        voz = knowledge_pack.get("voz", "")
+        cta = knowledge_pack.get("cta_padrao", "")
+        legenda = copy.get("legenda", "")
+        hashtags = copy.get("hashtags", [])
+        return (
+            "Aplique a skill `revisao-padroes-marca`.\n\n"
+            f"VOZ ESPERADA: {voz}\n"
+            f"CTA PADRÃO: {cta}\n\n"
+            f"LEGENDA:\n{legenda}\n\n"
+            f"HASHTAGS ({len(hashtags)}): {hashtags}\n\n"
+            "Devolva APENAS YAML:\n"
+            "veredicto: aprovado | refazer\n"
+            "motivo: <motivo objetivo>\n"
+        )
 
-        # Qualquer outro veredicto inesperado → aprovado por default (fail-open)
-        return ResultadoQA(veredicto="aprovado", aviso=f"veredicto desconhecido: {veredicto_raw}")
+    def _montar_prompt_visual(
+        self, copy: dict[str, Any], designer_resultado: dict[str, Any]
+    ) -> str:
+        template = designer_resultado.get("template_escolhido", "")
+        rationale = designer_resultado.get("rationale", "")
+        slides_count = designer_resultado.get("slides_renderizados", 0)
+        legenda_preview = str(copy.get("legenda", ""))[:120]
+        return (
+            "Aplique as skills `composicao-visual-social-2026` e `hierarquia-informacional-feed`.\n\n"
+            f"TEMPLATE ESCOLHIDO: {template}\n"
+            f"RATIONALE DO DESIGNER: {rationale}\n"
+            f"SLIDES RENDERIZADOS: {slides_count}\n"
+            f"LEGENDA (preview): {legenda_preview}\n\n"
+            "Avalie se as escolhas de design são adequadas para o conteúdo.\n\n"
+            "Devolva APENAS YAML:\n"
+            "veredicto: aprovado | refazer\n"
+            "motivo: <motivo objetivo>\n"
+        )
 
     def _montar_prompt(self, post: PostTexto, knowledge: dict[str, str]) -> str:
         briefing = knowledge.get("briefing", "")
