@@ -92,3 +92,87 @@ def test_sem_vault_ou_llm_falha_graciosamente() -> None:
     agent = Agent()  # nada injetado
     out = agent.execute({})
     assert out.sucesso is False
+
+
+# ===== Pipeline com visual (Task 17) — agora gera PNGs também =====
+
+
+class _FakeRender:
+    """Fake renderer para testes — simula Playwright sem lançar navegador real."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[int, int]] = []
+
+    def render_png(self, html: str, width: int, height: int) -> bytes:
+        self.calls.append((width, height))
+        return b"PNGFAKE-" + html[:10].encode("utf-8", errors="ignore")
+
+
+def test_pipeline_com_visual_gera_3_imagens() -> None:
+    """Pipeline completo (texto + visual): 3 PostTexto + 3 imagens (bytes)."""
+    vault = _vault_com_docs()
+    # Acrescentar template visual ao vault
+    template_path = "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html"
+    vault.write_note(template_path, "<html>{{TITULO}}</html>", {})
+
+    llm = FakeLLM(responses=[_PLAN_YAML, _REDATOR_YAML, _REDATOR_YAML, _REDATOR_YAML])
+    brave: Any = FakeMCP(
+        nome="brave-search",
+        category="research",
+        resultados={
+            "pilar 1 tendências 2026": [{"titulo": "x"}],
+            "pilar 2 tendências 2026": [{"titulo": "y"}],
+            "pilar 3 tendências 2026": [{"titulo": "z"}],
+            "pilar 4 tendências 2026": [{"titulo": "w"}],
+        },
+    )
+
+    agent = Agent(vault=vault, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[brave])
+    agent._render = _FakeRender()  # inject fake render
+
+    out = agent.execute({})
+    assert out.sucesso is True
+    imagens = out.resultado["imagens"]
+    assert isinstance(imagens, dict)
+    assert len(imagens) == 3
+    for png_bytes in imagens.values():
+        assert png_bytes.startswith(b"PNGFAKE")
+
+
+def test_falha_no_visual_de_um_post_nao_derruba_os_outros() -> None:
+    """Se MontadorVisual falhar num post, os outros prosseguem."""
+    vault = _vault_com_docs()
+    template_path = "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html"
+    vault.write_note(template_path, "<html>{{TITULO}}</html>", {})
+
+    llm = FakeLLM(responses=[_PLAN_YAML, _REDATOR_YAML, _REDATOR_YAML, _REDATOR_YAML])
+    brave: Any = FakeMCP(
+        nome="brave-search",
+        category="research",
+        resultados={
+            "pilar 1 tendências 2026": [{"titulo": "x"}],
+            "pilar 2 tendências 2026": [{"titulo": "y"}],
+            "pilar 3 tendências 2026": [{"titulo": "z"}],
+            "pilar 4 tendências 2026": [{"titulo": "w"}],
+        },
+    )
+
+    class _RenderQueFalhaNoSegundo:
+        def __init__(self) -> None:
+            self.count = 0
+
+        def render_png(self, html: str, width: int, height: int) -> bytes:  # noqa: ARG002
+            self.count += 1
+            if self.count == 2:
+                raise RuntimeError("playwright crashed")
+            return b"PNGFAKE"
+
+    agent = Agent(vault=vault, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[brave])
+    agent._render = _RenderQueFalhaNoSegundo()
+
+    out = agent.execute({})
+    imagens = out.resultado["imagens"]
+    # 3 posts texto, 2 imagens (1 falhou) — sucesso pq tem ao menos 1 post
+    assert len(imagens) == 2
+    assert out.sucesso is True
+    assert any("visual" in m.lower() or "playwright" in m.lower() for m in out.mensagens)

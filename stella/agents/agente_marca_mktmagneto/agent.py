@@ -16,6 +16,7 @@ from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
 
 from .carregador_marca import CarregadorMarca
+from .montador_visual import MontadorVisual, RenderProtocol
 from .pesquisador import Pesquisador, _MCPInvocavel
 from .planejador import Planejador
 from .redator import PostTexto, Redator
@@ -32,6 +33,15 @@ class Agent(BaseAgent):
     diretamente. Quando o Sub-projeto C (Time de Marketing) existir, este
     agente vira coordenador.
     """
+
+    def _get_render(self) -> RenderProtocol:
+        """Devolve o render injetado (`self._render` se setado) ou cria PlaywrightRender."""
+        existing: Any = getattr(self, "_render", None)
+        if existing is not None:
+            return cast(RenderProtocol, existing)
+        from stella.adapters.render.playwright_render import PlaywrightRender
+
+        return PlaywrightRender()
 
     def execute(self, input: dict[str, Any]) -> AgentOutput:
         if self._vault is None or self._llm is None:
@@ -77,12 +87,29 @@ class Agent(BaseAgent):
             except Exception as e:  # noqa: BLE001 — isolado por post
                 erros.append(f"Pauta '{pauta.titulo}' falhou na redação: {e}")
 
+        # 6. Montagem visual (HTML → PNG) — Task 17
+        render = self._get_render()
+        montador = MontadorVisual(vault=self._vault, render=render)
+        imagens: dict[str, bytes] = {}
+        for i, post in enumerate(posts, start=1):
+            post_id = f"post-{i:02d}"  # convenção temporária; data real virá na Task 20
+            try:
+                imagens[post_id] = montador.montar(post, post_id=post_id)
+            except Exception as e:  # noqa: BLE001 — isolado por post
+                erros.append(f"Post '{post.titulo}' falhou no visual: {e}")
+
         msgs = erros + [
-            f"{len(posts)} post(s) com texto pronto "
-            f"(visual e fila virão nos próximos milestones)."
+            f"{len(posts)} post(s) com texto pronto, "
+            f"{len(imagens)} visual(is) renderizado(s) "
+            f"(fila e automação virão nos próximos milestones)."
         ]
         return AgentOutput(
-            resultado={"posts_textos": posts, "pautas": pautas, "digest": digest},
+            resultado={
+                "posts_textos": posts,
+                "pautas": pautas,
+                "digest": digest,
+                "imagens": imagens,
+            },
             sucesso=bool(posts),
             mensagens=msgs,
         )
