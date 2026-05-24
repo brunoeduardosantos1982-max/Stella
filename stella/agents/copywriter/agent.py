@@ -77,6 +77,10 @@ class Agent(BaseAgent):
         feedback_anterior: str | None,
         output_anterior: dict[str, Any] | None,
     ) -> str:
+        # Suporte a dois formatos de knowledge_pack:
+        # 1. Estruturado (testes unitários): {voz, cta_padrao, hashtags_base}
+        # 2. CarregadorMarca (produção): {briefing, spec, kit}
+        briefing = knowledge_pack.get("briefing", "")
         voz = knowledge_pack.get("voz", "")
         cta = knowledge_pack.get("cta_padrao", "")
         hashtags_base = knowledge_pack.get("hashtags_base", [])
@@ -89,10 +93,19 @@ class Agent(BaseAgent):
             "Você é o Copywriter do Time de Marketing.",
             "Aplique as skills `copywriting-engajamento-ptbr`, `carrossel-instagram-ia` e `estrategia-hashtags`.",
             "",
-            f"VOZ DA MARCA: {voz}",
-            f"CTA PADRÃO: {cta}",
-            f"HASHTAGS BASE: {hashtags_base}",
-            "",
+        ]
+
+        if briefing:
+            partes += [f"BRIEFING DA MARCA:\n{briefing}", ""]
+        else:
+            partes += [
+                f"VOZ DA MARCA: {voz}",
+                f"CTA PADRÃO: {cta}",
+                f"HASHTAGS BASE: {hashtags_base}",
+                "",
+            ]
+
+        partes += [
             f"PAUTA: pilar {pilar} — {titulo}",
             f"FORMATO: {tipo}, {n_slides} slides",
         ]

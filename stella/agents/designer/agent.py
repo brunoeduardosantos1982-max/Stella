@@ -119,7 +119,8 @@ class Agent(BaseAgent):
         pauta: dict[str, Any],
         copy: dict[str, Any],
     ) -> str:
-        paleta = knowledge_pack.get("paleta", {})
+        # Suporte a dois formatos: {paleta} (testes) ou {kit} (CarregadorMarca)
+        paleta = knowledge_pack.get("paleta") or knowledge_pack.get("kit", "")
         tipo = pauta.get("tipo", "carrossel")
         n_slides = pauta.get("n_slides", 3)
         titulo = pauta.get("titulo", "")
