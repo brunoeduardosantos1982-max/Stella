@@ -73,6 +73,20 @@ class QualityReviewer:
 
         veredicto, feedback = self._avaliar_via_llm(input_original, output, agent_manifest)
 
+        # Warn-only: setores graduais nunca bloqueiam — warning vai para output.mensagens.
+        if veredicto != "aprovado" and agent_manifest.setor in self._policy.SETORES_WARN_ONLY:
+            aviso = f"[QualityReviewer] {feedback}"
+            return ReviewResult(
+                veredicto="aceitar_com_aviso",
+                feedback=feedback,
+                output_final=AgentOutput(
+                    resultado=output.resultado,
+                    sucesso=output.sucesso,
+                    mensagens=output.mensagens + [aviso],
+                    custo_estimado_usd=output.custo_estimado_usd,
+                ),
+            )
+
         # Q2=E: se refazer na 2a+ tentativa, converte para aceitar_com_aviso
         # para nao travar o Bruno indefinidamente.
         if veredicto == "refazer" and tentativa >= 2:
