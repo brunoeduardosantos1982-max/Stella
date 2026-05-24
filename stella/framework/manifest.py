@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from stella.domain.enums import ModeloIA
 from stella.framework.errors import (
@@ -81,6 +81,17 @@ class AgentManifest(BaseModel):
 
     # HTTP-only: endpoint do servidor remoto
     endpoint: str | None = None
+    timeout_s: float = Field(
+        default=300.0,
+        gt=0,
+        description="Timeout total da execucao do agente em segundos.",
+    )
+
+    @model_validator(mode="after")
+    def validate_execucao_http(self) -> AgentManifest:
+        if self.execucao == "http" and not self.endpoint:
+            raise ValueError("manifest com execucao='http' exige endpoint")
+        return self
 
 
 def load_manifest(path: Path) -> AgentManifest:

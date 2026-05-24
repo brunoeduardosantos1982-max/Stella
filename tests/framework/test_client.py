@@ -7,6 +7,7 @@ from stella.framework.agent import Agent, AgentOutput
 from stella.framework.client import AgentClient, HttpAgentClient, InProcessClient
 from stella.framework.errors import (
     AgentExecutionError,
+    AgentInputError,
     AgentTimeoutError,
     AgentUnavailableError,
 )
@@ -116,6 +117,7 @@ class _FakeHttpxClient:
         self._execute_body = execute_body or {"resultado": {"ok": True}, "sucesso": True}
         self._raise_on_execute = raise_on_execute
         self.calls: list[tuple[str, str, dict | None]] = []
+        self.timeouts: list[float | None] = []
 
     def get(self, url: str, timeout: float | None = None) -> _FakeResponse:
         self.calls.append(("GET", url, None))
@@ -123,6 +125,7 @@ class _FakeHttpxClient:
 
     def post(self, url: str, json: dict, timeout: float | None = None) -> _FakeResponse:
         self.calls.append(("POST", url, json))
+        self.timeouts.append(timeout)
         if self._raise_on_execute is not None:
             raise self._raise_on_execute
         return _FakeResponse(self._execute_status, self._execute_body)
@@ -135,6 +138,37 @@ def test_http_client_executa_post_quando_health_ok() -> None:
     assert out.resultado == {"copy": "ok"}
     assert any(call[0] == "GET" for call in fake.calls), "health_check deve ter sido chamado"
     assert any(call[0] == "POST" for call in fake.calls), "execute deve ter sido chamado"
+
+
+def test_http_client_valida_inputs_obrigatorios_antes_de_chamar_rede() -> None:
+    fake = _FakeHttpxClient()
+    c = HttpAgentClient(manifest=_manifest_http(), httpx_client=fake)  # type: ignore[arg-type]
+    with pytest.raises(AgentInputError, match="acao"):
+        c.execute({})
+    assert fake.calls == []
+
+
+def test_http_client_usa_timeout_do_manifest() -> None:
+    manifest = _manifest_http()
+    manifest.timeout_s = 12.5
+    fake = _FakeHttpxClient()
+    c = HttpAgentClient(manifest=manifest, httpx_client=fake)  # type: ignore[arg-type]
+    c.execute({"acao": "x"})
+    assert fake.timeouts == [12.5]
+
+
+def test_http_client_rejeita_resultado_nao_dict() -> None:
+    fake = _FakeHttpxClient(execute_body={"resultado": "ok", "sucesso": True})
+    c = HttpAgentClient(manifest=_manifest_http(), httpx_client=fake)  # type: ignore[arg-type]
+    with pytest.raises(AgentExecutionError, match="resultado"):
+        c.execute({"acao": "x"})
+
+
+def test_http_client_aceita_mensagens_string_e_normaliza_lista() -> None:
+    fake = _FakeHttpxClient(execute_body={"resultado": {}, "sucesso": True, "mensagens": "ok"})
+    c = HttpAgentClient(manifest=_manifest_http(), httpx_client=fake)  # type: ignore[arg-type]
+    out = c.execute({"acao": "x"})
+    assert out.mensagens == ["ok"]
 
 
 def test_http_client_levanta_unavailable_quando_health_falha() -> None:

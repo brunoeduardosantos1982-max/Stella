@@ -7,6 +7,7 @@ from stella.app import Stella, build_stella
 from stella.framework.cli.agent_cli import agent_app
 from stella.framework.errors import (
     AgentExecutionError,
+    AgentInputError,
     AgentNotFoundError,
     AgentTimeoutError,
     AgentUnavailableError,
@@ -40,6 +41,8 @@ def _traduzir_erro_jarvis(erro: FrameworkError) -> str:
         return f"Senhor, o agente demorou demais para responder: {msg}. Cancelei."
     if isinstance(erro, AgentExecutionError):
         return f"Senhor, o agente falhou ao executar: {msg}"
+    if isinstance(erro, AgentInputError):
+        return f"Senhor, o pedido enviado ao agente esta incompleto: {msg}"
     if isinstance(erro, ManifestError):
         return f"Senhor, configuracao do manifest invalida: {msg}"
     if isinstance(erro, DelegationDepthExceeded):

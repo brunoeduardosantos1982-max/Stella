@@ -49,6 +49,10 @@ class AgentExecutionError(FrameworkError):
     para isolar a Stella e o caller do erro bruto do agente."""
 
 
+class AgentInputError(FrameworkError):
+    """Payload enviado a um agente nao cumpre o contrato declarado no manifest."""
+
+
 class AgentUnavailableError(FrameworkError):
     """Agente HTTP offline (servidor não responde) ou processo in-process
     morto. Stella decide se inicia / tenta de novo / pede confirmação."""

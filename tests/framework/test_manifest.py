@@ -71,6 +71,21 @@ def test_manifest_http_pode_ter_endpoint() -> None:
     m = AgentManifest(**payload)
     assert m.execucao == "http"
     assert m.endpoint == "http://localhost:8000"
+    assert m.timeout_s == 300.0
+
+
+def test_manifest_http_exige_endpoint() -> None:
+    payload = _manifest_valido_minimo()
+    payload["execucao"] = "http"
+    with pytest.raises(ValidationError, match="endpoint"):
+        AgentManifest(**payload)
+
+
+def test_manifest_timeout_precisa_ser_positivo() -> None:
+    payload = _manifest_valido_minimo()
+    payload["timeout_s"] = 0
+    with pytest.raises(ValidationError):
+        AgentManifest(**payload)
 
 
 def test_manifest_tipo_invalido_levanta_validation_error() -> None:

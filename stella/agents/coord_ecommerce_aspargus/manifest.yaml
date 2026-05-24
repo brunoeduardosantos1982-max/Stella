@@ -4,6 +4,7 @@ setor: ecommerce
 descricao: "Adapter HTTP para o sistema Aspargus (D:\\VortexBrain00\\aspargus-agents). Coordena Garimpador, Sourcing, ADS e demais agentes Amazon. Stella delega tarefas de e-commerce aqui."
 execucao: http
 endpoint: "http://localhost:8000"
+timeout_s: 300
 modelo_minimo: sonnet
 
 inputs_obrigatorios: [acao]
