@@ -1,4 +1,8 @@
-"""Pipeline de texto end-to-end (sem visual/fila) — Task 13."""
+"""Pipeline end-to-end do coordenador agente_marca_mktmagneto.
+
+v2: delega copy ao especialista `copywriter` e visual ao `designer`.
+LLM só é chamado para: Planejador + AutoQA (aprova_copy + aprova_visual).
+"""
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
@@ -6,17 +10,34 @@ from typing import Any, cast
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.llm.router import LLMRouter
 from stella.agents.agente_marca_mktmagneto.agent import Agent
-from stella.agents.agente_marca_mktmagneto.redator import PostTexto
-from stella.framework.testing.fakes import FakeLLM, FakeMCP, FakeVault
+from stella.framework.agent import AgentOutput
+from stella.framework.testing.fakes import (
+    FakeCopywriter,
+    FakeDesigner,
+    FakeLLM,
+    FakeMCP,
+    FakeRegistry,
+    FakeVault,
+)
 
 _BRT = timezone(timedelta(hours=-3))
-_AGORA_FIXO = datetime(2026, 5, 25, 12, 0, tzinfo=_BRT)  # segunda 25/05/2026
+_AGORA_FIXO = datetime(2026, 5, 25, 12, 0, tzinfo=_BRT)
 
 _BASE = "C04 Claude Obsidian/projetos e specs/mktmagneto.ia/"
 
+_PLAN_YAML = """
+pautas:
+  - {pilar: 1, titulo: "A"}
+  - {pilar: 2, titulo: "B"}
+  - {pilar: 4, titulo: "C"}
+"""
 
-def _vault_com_docs() -> FakeVault:
-    return FakeVault(
+_QA_OK = "veredicto: aprovado\nmotivo: ok"
+_QA_REFAZER = "veredicto: refazer\nmotivo: hook fraco"
+
+
+def _vault_pronto() -> FakeVault:
+    vault = FakeVault(
         {
             f"{_BASE}mktmagneto.ia — 01 Spec.md": ("# Spec\n\nposicionamento", {}),
             f"{_BASE}mktmagneto.ia — 03 Briefing do Agente de Conteúdo.md": (
@@ -26,11 +47,6 @@ def _vault_com_docs() -> FakeVault:
             f"{_BASE}mktmagneto.ia — 04 Kit de Identidade Visual.md": ("# Kit\n\ncores", {}),
         }
     )
-
-
-def _vault_pronto() -> FakeVault:
-    """Vault com docs da marca + template visual."""
-    vault = _vault_com_docs()
     vault.write_note(
         "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html",
         "<html>{{TITULO}}</html>",
@@ -39,23 +55,7 @@ def _vault_pronto() -> FakeVault:
     return vault
 
 
-_PLAN_YAML = """
-pautas:
-  - {pilar: 1, titulo: "A"}
-  - {pilar: 2, titulo: "B"}
-  - {pilar: 4, titulo: "C"}
-"""
-
-_REDATOR_YAML = """
-legenda: "🔥 H\\n\\nctx\\n\\ncorpo\\n\\n👇 CTA"
-hashtags: ["#h1", "#h2", "#h3", "#h4", "#h5", "#h6", "#h7", "#h8", "#h9", "#h10", "#h11", "#h12"]
-slides: ["s1", "s2", "s3"]
-"""
-
-
 class _FakeRouter:
-    """Stub mínimo de LLMRouter — devolve sempre o mesmo FakeLLM."""
-
     def __init__(self, llm: LLMProvider) -> None:
         self._llm = llm
 
@@ -63,55 +63,35 @@ class _FakeRouter:
         return self._llm
 
 
-def test_pipeline_de_texto_gera_3_posts() -> None:
-    """Pipeline texto: 4 módulos encadeados → 3 PostTexto no resultado."""
-    vault = _vault_com_docs()
-    vault.write_note(
-        "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html",
-        "<html>{{TITULO}}</html>",
-        {},
-    )
-    # 1 planejador + 3 redator + 3 qa aprovados = 7 respostas
-    qa_yaml = "veredicto: aprovado\nmotivo: ok"
-    llm = FakeLLM(
-        responses=[
-            _PLAN_YAML,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-        ]
-    )
-    brave: Any = FakeMCP(
+def _brave() -> FakeMCP:
+    return FakeMCP(
         nome="tavily",
         category="research",
-        resultados={
-            "pilar 1 tendências 2026": [{"titulo": "x"}],
-            "pilar 2 tendências 2026": [{"titulo": "y"}],
-            "pilar 3 tendências 2026": [{"titulo": "z"}],
-            "pilar 4 tendências 2026": [{"titulo": "w"}],
-        },
+        resultados={f"pilar {p} tendências 2026": [{"titulo": "x"}] for p in (1, 2, 3, 4)},
     )
 
-    agent = Agent(vault=vault, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[brave])
-    agent._render = _FakeRender()
-    agent._now = lambda: _AGORA_FIXO
-    out = agent.execute({})
 
-    assert out.sucesso is True
-    posts = out.resultado["posts_textos"]
-    assert len(posts) == 3
-    assert all(isinstance(p, PostTexto) for p in posts)
-    assert {p.pilar for p in posts} == {1, 2, 4}
+def _agent(llm: FakeLLM, vault: FakeVault | None = None, registry: Any = None) -> Agent:
+    agent = Agent(
+        vault=vault or _vault_pronto(),
+        llm=cast(LLMRouter, _FakeRouter(llm)),
+        mcps=[_brave()],
+        registry=registry
+        or FakeRegistry({"copywriter": FakeCopywriter(), "designer": FakeDesigner()}),
+    )
+    agent._now = lambda: _AGORA_FIXO  # type: ignore[method-assign]
+    return agent
+
+
+# ── testes de falha rápida ────────────────────────────────────────────────────
 
 
 def test_doc_da_marca_ausente_devolve_sucesso_false() -> None:
-    """Sem briefing no vault, agente não roda."""
-    vault_vazio = FakeVault({})
     llm = FakeLLM(responses=[])
-    agent = Agent(vault=vault_vazio, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[])
+    registry = FakeRegistry({"copywriter": FakeCopywriter(), "designer": FakeDesigner()})
+    agent = Agent(
+        vault=FakeVault({}), llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[], registry=registry
+    )
     out = agent.execute({})
     assert out.sucesso is False
     assert any(
@@ -120,216 +100,138 @@ def test_doc_da_marca_ausente_devolve_sucesso_false() -> None:
     )
 
 
-def test_sem_vault_ou_llm_falha_graciosamente() -> None:
-    """Sem deps essenciais injetadas, agente devolve sucesso=False."""
-    agent = Agent()  # nada injetado
-    out = agent.execute({})
+def test_sem_vault_ou_llm_ou_registry_falha_graciosamente() -> None:
+    out = Agent().execute({})
     assert out.sucesso is False
 
 
-# ===== Pipeline com visual (Task 17) — agora gera PNGs também =====
+# ── pipeline completo ─────────────────────────────────────────────────────────
 
 
-class _FakeRender:
-    """Fake renderer para testes — simula Playwright sem lançar navegador real."""
-
-    def __init__(self) -> None:
-        self.calls: list[tuple[int, int]] = []
-
-    def render_png(self, html: str, width: int, height: int) -> bytes:
-        self.calls.append((width, height))
-        return b"PNGFAKE-" + html[:10].encode("utf-8", errors="ignore")
-
-
-def test_pipeline_com_visual_gera_3_imagens() -> None:
-    """Pipeline completo (texto + visual): 3 PostTexto + 3 imagens (bytes)."""
-    vault = _vault_com_docs()
-    # Acrescentar template visual ao vault
-    template_path = "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html"
-    vault.write_note(template_path, "<html>{{TITULO}}</html>", {})
-
-    # 1 planejador + 3 redator + 3 qa aprovados = 7 respostas
-    qa_yaml = "veredicto: aprovado\nmotivo: ok"
-    llm = FakeLLM(
-        responses=[
-            _PLAN_YAML,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-        ]
-    )
-    brave: Any = FakeMCP(
-        nome="tavily",
-        category="research",
-        resultados={
-            "pilar 1 tendências 2026": [{"titulo": "x"}],
-            "pilar 2 tendências 2026": [{"titulo": "y"}],
-            "pilar 3 tendências 2026": [{"titulo": "z"}],
-            "pilar 4 tendências 2026": [{"titulo": "w"}],
-        },
-    )
-
-    agent = Agent(vault=vault, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[brave])
-    agent._render = _FakeRender()  # inject fake render
-    agent._now = lambda: _AGORA_FIXO
-
-    out = agent.execute({})
-    assert out.sucesso is True
-    imagens = out.resultado["imagens"]
-    assert isinstance(imagens, dict)
-    assert len(imagens) == 3
-    for png_bytes in imagens.values():
-        assert png_bytes.startswith(b"PNGFAKE")
-
-
-def test_falha_no_visual_de_um_post_nao_derruba_os_outros() -> None:
-    """Se MontadorVisual falhar num post, os outros prosseguem."""
-    vault = _vault_com_docs()
-    template_path = "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html"
-    vault.write_note(template_path, "<html>{{TITULO}}</html>", {})
-
-    # 1 planejador + 3 redator + 3 qa aprovados = 7 respostas
-    qa_yaml = "veredicto: aprovado\nmotivo: ok"
-    llm = FakeLLM(
-        responses=[
-            _PLAN_YAML,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-        ]
-    )
-    brave: Any = FakeMCP(
-        nome="tavily",
-        category="research",
-        resultados={
-            "pilar 1 tendências 2026": [{"titulo": "x"}],
-            "pilar 2 tendências 2026": [{"titulo": "y"}],
-            "pilar 3 tendências 2026": [{"titulo": "z"}],
-            "pilar 4 tendências 2026": [{"titulo": "w"}],
-        },
-    )
-
-    class _RenderQueFalhaNoSegundo:
-        def __init__(self) -> None:
-            self.count = 0
-
-        def render_png(self, html: str, width: int, height: int) -> bytes:  # noqa: ARG002
-            self.count += 1
-            if self.count == 2:
-                raise RuntimeError("playwright crashed")
-            return b"PNGFAKE"
-
-    agent = Agent(vault=vault, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[brave])
-    agent._render = _RenderQueFalhaNoSegundo()
-    agent._now = lambda: _AGORA_FIXO
-
-    out = agent.execute({})
-    imagens = out.resultado["imagens"]
-    # 3 posts texto, 2 imagens (1 falhou) — sucesso pq tem ao menos 1 post
-    assert len(imagens) == 2
-    assert out.sucesso is True
-    assert any("visual" in m.lower() or "playwright" in m.lower() for m in out.mensagens)
-
-
-# ===== Pipeline FINAL (Task 20) — gera 3 notas .md + 3 PNGs na fila do publicador =====
-
-
-def test_pipeline_final_escreve_3_notas_na_fila_e_atualiza_calendario() -> None:
-    """Pipeline completo: 3 notas .md no formato do publicador + 3 PNGs + calendario.md atualizado."""
+def test_pipeline_gera_3_rascunhos_na_fila() -> None:
+    """Coordenador delega copy + visual e grava 3 notas .md na fila."""
+    # plan(1) + 3×aprova_copy(1) + 3×aprova_visual(1) = 7
+    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
     vault = _vault_pronto()
-
-    qa_yaml = "veredicto: aprovado\nmotivo: ok"
-    # 1 plan + 3 redator + 3 qa = 7 respostas
-    llm = FakeLLM(
-        responses=[
-            _PLAN_YAML,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-            _REDATOR_YAML,
-            qa_yaml,
-        ]
-    )
-    brave = FakeMCP(
-        nome="tavily",
-        category="research",
-        resultados={f"pilar {p} tendências 2026": [{"titulo": "x"}] for p in (1, 2, 3, 4)},
-    )
-
-    agent = Agent(vault=vault, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[brave])
-    agent._render = _FakeRender()  # do test anterior
-    agent._now = lambda: _AGORA_FIXO  # injetar relógio fixo p/ testes
-
+    agent = _agent(llm, vault=vault)
     out = agent.execute({})
 
     assert out.sucesso is True
     assert out.resultado["posts_em_rascunho"] == 3
+    fila = [p for p in vault._store if "Stella-publicacao/fila/" in p and p.endswith(".md")]
+    assert len(fila) == 3
 
-    # 3 notas .md na fila + 3 PNGs
-    fila_notas = [
-        p
-        for p in vault._store
-        if p.startswith("C04 Claude Obsidian/Stella-publicacao/fila/") and p.endswith(".md")
-    ]
-    assert len(fila_notas) == 3
 
-    # Cada nota tem o frontmatter no formato do publicador
-    for path in fila_notas:
+def test_pipeline_grava_pngs_no_vault() -> None:
+    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    vault = _vault_pronto()
+    agent = _agent(llm, vault=vault)
+    agent.execute({})
+
+    pngs = [p for p in vault._binarios if p.endswith(".png")]
+    assert len(pngs) == 3
+    for data in vault._binarios.values():
+        assert data.startswith(b"PNGFAKE")
+
+
+def test_pipeline_atualiza_calendario() -> None:
+    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    vault = _vault_pronto()
+    agent = _agent(llm, vault=vault)
+    agent.execute({})
+
+    cal_path = "C04 Claude Obsidian/outputs/mktmagneto-ia/calendario.md"
+    assert vault.note_exists(cal_path)
+    cal = vault.read_note(cal_path)
+    assert "planejado" in cal.content.lower()
+
+
+def test_nota_da_fila_tem_frontmatter_correto() -> None:
+    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    vault = _vault_pronto()
+    agent = _agent(llm, vault=vault)
+    agent.execute({})
+
+    fila = [p for p in vault._store if "Stella-publicacao/fila/" in p and p.endswith(".md")]
+    for path in fila:
         nota = vault.read_note(path)
         assert nota.frontmatter["marca"] == "mktmagneto"
         assert nota.frontmatter["status"] == "rascunho"
         assert nota.frontmatter["plataformas"] == ["instagram"]
-        # imagem referenciada existe (PNG anexado)
-        png_name = nota.frontmatter["imagem"]
-        png_full = path.rsplit("/", 1)[0] + "/" + png_name
-        assert vault.read_binary(png_full).startswith(b"PNGFAKE")
-
-    # Calendário criado/atualizado
-    cal_path = "C04 Claude Obsidian/outputs/mktmagneto-ia/calendario.md"
-    assert vault.note_exists(cal_path)
-    cal = vault.read_note(cal_path)
-    assert "planejado" in cal.content.lower() or "pilar" in cal.content.lower()
 
 
-def test_autoqa_refaz_e_aceita() -> None:
-    """AutoQA reprova na 1ª, aprova na 2ª — implementação chama Redator de novo."""
-    vault = _vault_pronto()
+# ── QA copy: retry com feedback ───────────────────────────────────────────────
 
-    refaz_yaml = "veredicto: refazer\nmotivo: hook fraco"
-    ok_yaml = "veredicto: aprovado\nmotivo: ok"
-    # Planejador + 3 posts. O 1º entra no ciclo refazer: redator 1x → qa refazer → redator 2x → qa aprovado.
-    # Os outros 2: redator + qa aprovado direto.
-    # Sequência: plan, R1, QA-refazer, R1b, QA-aprovado, R2, QA-aprovado, R3, QA-aprovado = 9
+
+def test_autoqa_copy_refaz_e_aprova_na_segunda() -> None:
+    """QA reprova copy na 1ª tentativa; coordenador reenvia com feedback → aprovado na 2ª."""
+    # plan + qa_copy_refazer(post1-t1) + qa_copy_ok(post1-t2) + qa_visual_ok(post1)
+    # + qa_copy_ok(post2) + qa_visual_ok(post2) + qa_copy_ok(post3) + qa_visual_ok(post3) = 8
     llm = FakeLLM(
         responses=[
             _PLAN_YAML,
-            _REDATOR_YAML,
-            refaz_yaml,  # 1º post: refazer
-            _REDATOR_YAML,
-            ok_yaml,  # 1º post: ok na 2ª
-            _REDATOR_YAML,
-            ok_yaml,  # 2º post
-            _REDATOR_YAML,
-            ok_yaml,  # 3º post
+            _QA_REFAZER,  # post 1 copy tentativa 1
+            _QA_OK,  # post 1 copy tentativa 2
+            _QA_OK,  # post 1 visual
+            _QA_OK,  # post 2 copy
+            _QA_OK,  # post 2 visual
+            _QA_OK,  # post 3 copy
+            _QA_OK,  # post 3 visual
         ]
     )
-    brave = FakeMCP(
-        nome="tavily",
-        category="research",
-        resultados={f"pilar {p} tendências 2026": [{"x": 1}] for p in (1, 2, 3, 4)},
+    copywriter = FakeCopywriter()
+    agent = _agent(
+        llm,
+        registry=FakeRegistry({"copywriter": copywriter, "designer": FakeDesigner()}),
     )
-
-    agent = Agent(vault=vault, llm=cast(LLMRouter, _FakeRouter(llm)), mcps=[brave])
-    agent._render = _FakeRender()
-    agent._now = lambda: _AGORA_FIXO
-
     out = agent.execute({})
     assert out.sucesso is True
     assert out.resultado["posts_em_rascunho"] == 3
+    # copywriter foi chamado 4 vezes: retry de post1 + posts 2 e 3
+    assert len(copywriter.payloads) == 4
+    # segundo payload tem feedback_anterior
+    assert "feedback_anterior" in copywriter.payloads[1]
+
+
+def test_designer_falha_num_post_nao_derruba_os_outros() -> None:
+    """Se designer retorna sucesso=False, esse post é pulado mas os demais são gravados."""
+
+    class _DesignerFalhaNaSegunda:
+        call_count = 0
+
+        def execute(self, payload: dict[str, Any]) -> AgentOutput:
+            self.call_count += 1
+            if self.call_count == 2:
+                return AgentOutput(resultado={}, sucesso=False, mensagens=["designer crashed"])
+            return AgentOutput(
+                resultado={
+                    "png_bytes": b"PNGFAKE-ok",
+                    "template_escolhido": "capa-carrossel",
+                    "rationale": "ok",
+                    "slides_renderizados": 3,
+                }
+            )
+
+    # plan + 3×qa_copy + 2×qa_visual (post2 é pulado) = 6
+    llm = FakeLLM(
+        responses=[
+            _PLAN_YAML,
+            _QA_OK,
+            _QA_OK,
+            _QA_OK,  # qa_copy posts 1, 2, 3
+            _QA_OK,
+            _QA_OK,  # qa_visual posts 1 e 3 (post2 designer falhou)
+        ]
+    )
+    vault = _vault_pronto()
+    agent = _agent(
+        llm,
+        vault=vault,
+        registry=FakeRegistry(
+            {"copywriter": FakeCopywriter(), "designer": _DesignerFalhaNaSegunda()}
+        ),
+    )
+    out = agent.execute({})
+
+    assert out.resultado["posts_em_rascunho"] == 2
+    assert any("designer falhou" in m for m in out.mensagens)

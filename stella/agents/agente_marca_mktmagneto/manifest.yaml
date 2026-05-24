@@ -1,5 +1,5 @@
 nome: agente_marca_mktmagneto
-tipo: especialista
+tipo: coordenador
 setor: marketing-marca
 descricao: "É a marca @mktmagneto.ia encarnada. Pesquisa tendências, planeja, redige e monta os 3 posts da semana como rascunhos na fila do agente_publicador. Camada de QA contra os padrões da marca."
 execucao: in_process
@@ -11,10 +11,6 @@ quando_usar: "produzir o lote semanal de conteúdo da marca @mktmagneto.ia"
 
 capacidades_externas:
   skills:
-    - copywriting-engajamento-ptbr
-    - carrossel-instagram-ia
-    - estrategia-hashtags
-    - design-tipografico-dark
     - planejamento-editorial
     - pesquisa-tendencias-web
     - revisao-padroes-marca
@@ -28,4 +24,6 @@ vault_scope:
   - "C04 Claude Obsidian/outputs/mktmagneto-ia/**"
   - "C04 Claude Obsidian/Stella-publicacao/fila/**"
 
-especialistas: []
+especialistas:
+  - copywriter
+  - designer

@@ -19,13 +19,14 @@ def test_manifest_basico_correto():
     agents_dir = Path(_stella.__file__).parent / "agents"
     reg = AgentRegistry(agents_dir)
     manifest = next(m for m in reg.list_manifests() if m.nome == "agente_marca_mktmagneto")
-    assert manifest.tipo == "especialista"
+    assert manifest.tipo == "coordenador"
     assert manifest.setor == "marketing-marca"
     assert manifest.execucao == "in_process"
     assert "tavily" in manifest.capacidades_externas.mcps
     assert "perplexity" in manifest.capacidades_externas.mcps
-    # 7 skills declaradas
-    assert len(manifest.capacidades_externas.skills) == 7
-    # vault_scope é lista (graças à Task 1)
+    # especialistas delgados
+    assert "copywriter" in manifest.especialistas
+    assert "designer" in manifest.especialistas
+    # vault_scope é lista
     assert isinstance(manifest.vault_scope, list)
     assert len(manifest.vault_scope) >= 3
