@@ -20,6 +20,8 @@ capacidades_externas:
   mcps: []
   rag: null
 
-vault_scope: "C04 Claude Obsidian/outputs/marketing-team/copywriter/**"
+vault_scope:
+  - "C04 Claude Obsidian/outputs/mktmagneto-ia/**"
+  - "C04 Claude Obsidian/outputs/marketing-team/copywriter/**"
 
 especialistas: []
