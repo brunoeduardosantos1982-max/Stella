@@ -13,6 +13,10 @@ from typing import Any
 
 from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
 from stella.adapters.vault.base import Note, VaultRepository
+from stella.framework.agent import AgentOutput
+from stella.framework.client import AgentClient
+from stella.framework.errors import AgentNotFoundError
+from stella.framework.manifest import AgentManifest, CapacidadesExternas
 from stella.framework.rag import RAGClient
 from stella.infra.usage_tracker import UsageRecord
 
@@ -194,6 +198,103 @@ class FakeLogger:
 
     def error(self, msg: str, *args: Any) -> None:
         self.records.append(("ERROR", msg % args if args else msg))
+
+
+class FakeCopywriter(AgentClient):
+    """Especialista fake de copy — AgentClient que retorna outputs pré-determinados.
+
+    Registra payloads recebidos em `self.payloads` para asserts nos testes.
+    """
+
+    def __init__(self, outputs: list[dict[str, Any]] | None = None) -> None:
+        self._outputs = list(outputs or [])
+        self.payloads: list[dict[str, Any]] = []
+
+    def execute(self, payload: dict[str, Any]) -> AgentOutput:
+        self.payloads.append(payload)
+        if self._outputs:
+            resultado = self._outputs.pop(0)
+        else:
+            resultado = {
+                "legenda": "🔥 Hook padrão\n\nContexto\n\n👇 CTA",
+                "slides": ["slide 1", "slide 2", "slide 3"],
+                "hashtags": ["#ia"] * 12,
+                "rationale": "copy padrão FakeCopywriter",
+            }
+        return AgentOutput(resultado=resultado)
+
+    def manifest(self) -> AgentManifest:
+        return AgentManifest(
+            nome="copywriter",
+            tipo="especialista",
+            setor="marketing",
+            descricao="fake copywriter para testes",
+            execucao="in_process",
+            modelo_minimo="gemma",
+            inputs_obrigatorios=[],
+            exemplo_uso={},
+            quando_usar="apenas em testes do framework",
+            capacidades_externas=CapacidadesExternas(),
+        )
+
+
+class FakeDesigner(AgentClient):
+    """Especialista fake de design — AgentClient que retorna outputs pré-determinados.
+
+    Registra payloads recebidos em `self.payloads` para asserts nos testes.
+    """
+
+    def __init__(self, outputs: list[dict[str, Any]] | None = None) -> None:
+        self._outputs = list(outputs or [])
+        self.payloads: list[dict[str, Any]] = []
+
+    def execute(self, payload: dict[str, Any]) -> AgentOutput:
+        self.payloads.append(payload)
+        if self._outputs:
+            resultado = self._outputs.pop(0)
+        else:
+            resultado = {
+                "png_bytes": b"PNGFAKE-designer",
+                "template_escolhido": "capa-carrossel",
+                "rationale": "template padrão FakeDesigner",
+                "slides_renderizados": 1,
+            }
+        return AgentOutput(resultado=resultado)
+
+    def manifest(self) -> AgentManifest:
+        return AgentManifest(
+            nome="designer",
+            tipo="especialista",
+            setor="marketing",
+            descricao="fake designer para testes",
+            execucao="in_process",
+            modelo_minimo="gemma",
+            inputs_obrigatorios=[],
+            exemplo_uso={},
+            quando_usar="apenas em testes do framework",
+            capacidades_externas=CapacidadesExternas(),
+        )
+
+
+class FakeRegistry:
+    """Registry fake — resolve agentes por nome via dict de AgentClients.
+
+    Compatível com `delegate_to` (chama `self._registry.get(nome)`).
+
+    Uso:
+        registry = FakeRegistry({"copywriter": FakeCopywriter(), "designer": FakeDesigner()})
+        agent = Agent(registry=registry)
+    """
+
+    def __init__(self, agents: dict[str, AgentClient]) -> None:
+        self._agents = agents
+
+    def get(self, nome: str) -> AgentClient:
+        if nome not in self._agents:
+            raise AgentNotFoundError(
+                f"FakeRegistry: agente '{nome}' nao registrado. Conhecidos: {list(self._agents)}"
+            )
+        return self._agents[nome]
 
 
 def _fake_glob_match(path: str, pattern: str) -> bool:
