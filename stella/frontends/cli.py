@@ -128,6 +128,28 @@ def pergunta(
 
 
 @app.command()
+def conteudo(
+    marca: str = typer.Argument(..., help="Marca alvo (ex: mktmagneto)"),
+) -> None:
+    """Gera o lote semanal de conteúdo da marca (rascunhos na fila do publicador)."""
+    if marca != "mktmagneto":
+        typer.echo(f"Senhor, ainda só conheço o agente da marca 'mktmagneto'. Recebi '{marca}'.")
+        raise typer.Exit(code=2)
+
+    stella = _build_stella_para_cli()
+    agente = stella.registry.get("agente_marca_mktmagneto")
+    out = agente.execute({})
+
+    if out.sucesso:
+        n = out.resultado.get("posts_em_rascunho", 0)
+        msg = " ".join(out.mensagens) if out.mensagens else ""
+        typer.echo(f"Senhor, {n} post(s) em rascunho na fila. {msg}".strip())
+    else:
+        typer.echo(f"Senhor, deu ruim: {' / '.join(out.mensagens)}")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def publicar() -> None:
     """Publica os posts da fila (C04 Claude Obsidian/Stella-publicacao/fila/)."""
     cfg = StellaConfig()
