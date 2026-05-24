@@ -22,7 +22,7 @@ def test_manifest_basico_correto():
     assert manifest.tipo == "especialista"
     assert manifest.setor == "marketing-marca"
     assert manifest.execucao == "in_process"
-    assert "brave-search" in manifest.capacidades_externas.mcps
+    assert "tavily" in manifest.capacidades_externas.mcps
     assert "perplexity" in manifest.capacidades_externas.mcps
     # 7 skills declaradas
     assert len(manifest.capacidades_externas.skills) == 7

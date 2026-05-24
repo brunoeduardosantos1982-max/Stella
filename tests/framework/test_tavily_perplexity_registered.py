@@ -1,4 +1,4 @@
-"""Testa que build_stella registra Brave Search MCP em category: research."""
+"""Testa que build_stella registra Tavily como MCP primário em category: research."""
 
 from pathlib import Path
 
@@ -11,7 +11,7 @@ from stella.infra.config import StellaConfig
 def _make_test_config(
     tmp_path: Path,
     *,
-    brave: str = "brave-fake-key",
+    tavily: str = "tavily-fake-key",
     perplexity: str = "",
 ) -> StellaConfig:
     """StellaConfig mínimo para testes — chaves fakes, vault em tmp."""
@@ -19,25 +19,25 @@ def _make_test_config(
         nvidia_api_key=SecretStr("fake-nvidia"),
         anthropic_api_key=SecretStr("fake-anthropic"),
         vault_path=tmp_path,
-        brave_api_key=SecretStr(brave),
+        tavily_api_key=SecretStr(tavily),
         perplexity_api_key=SecretStr(perplexity),
     )
 
 
-def test_brave_registrado_em_research(tmp_path):
-    """Brave Search deve ser registrada em category: research."""
+def test_tavily_registrado_em_research(tmp_path):
+    """Tavily deve ser registrado em category: research."""
     stella = build_stella(_make_test_config(tmp_path))
     research = stella.mcp_reg.list_by_category("research")
     nomes = [m.nome for m in research]
-    assert "brave-search" in nomes
+    assert "tavily" in nomes
 
 
-def test_brave_nao_registra_sem_api_key(tmp_path):
-    """Sem brave_api_key, MCP não é registrada — evita ConexaoMCP inválida."""
-    stella = build_stella(_make_test_config(tmp_path, brave=""))
+def test_tavily_nao_registra_sem_api_key(tmp_path):
+    """Sem tavily_api_key, MCP não é registrada — evita cliente inválido."""
+    stella = build_stella(_make_test_config(tmp_path, tavily=""))
     research = stella.mcp_reg.list_by_category("research")
     nomes = [m.nome for m in research]
-    assert "brave-search" not in nomes
+    assert "tavily" not in nomes
 
 
 def test_perplexity_registrado_em_research(tmp_path):
@@ -50,20 +50,20 @@ def test_perplexity_registrado_em_research(tmp_path):
 
 def test_perplexity_nao_registra_sem_api_key(tmp_path):
     """Sem perplexity_api_key, MCP não é registrada."""
-    stella = build_stella(_make_test_config(tmp_path, brave="brave-fake", perplexity=""))
+    stella = build_stella(_make_test_config(tmp_path, tavily="tavily-fake", perplexity=""))
     research = stella.mcp_reg.list_by_category("research")
     nomes = [m.nome for m in research]
     assert "perplexity" not in nomes
 
 
-def test_cascata_com_brave_e_perplexity(tmp_path):
-    """Com ambas as chaves presentes, ambas são registradas em research; Brave é primária."""
+def test_cascata_com_tavily_e_perplexity(tmp_path):
+    """Com ambas as chaves, ambas são registradas em research; Tavily é primária."""
     stella = build_stella(
-        _make_test_config(tmp_path, brave="brave-fake", perplexity="perplexity-fake")
+        _make_test_config(tmp_path, tavily="tavily-fake", perplexity="perplexity-fake")
     )
     research = stella.mcp_reg.list_by_category("research")
     nomes = [m.nome for m in research]
-    assert "brave-search" in nomes
+    assert "tavily" in nomes
     assert "perplexity" in nomes
-    # Brave deve vir primeiro (primário da cascata)
-    assert nomes.index("brave-search") < nomes.index("perplexity")
+    # Tavily deve vir primeiro (primário da cascata)
+    assert nomes.index("tavily") < nomes.index("perplexity")

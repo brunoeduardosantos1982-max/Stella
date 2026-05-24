@@ -1,4 +1,4 @@
-"""Pesquisador — cascata Brave → Perplexity → ... → digest vazio."""
+"""Pesquisador — cascata Tavily → Perplexity → ... → digest vazio."""
 
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class Pesquisador:
     """Cascata de pesquisa: tenta MCPs em ordem; primeiro com resultado vence.
 
     `research_mcps` é a lista ordenada (primário → fallback → ...) — em produção
-    vem de `MCPRegistry.list_by_category("research")` (Brave primeiro, Perplexity
+    vem de `MCPRegistry.list_by_category("research")` (Tavily primeiro, Perplexity
     depois, conforme registrado em build_stella).
     """
 

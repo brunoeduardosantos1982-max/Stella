@@ -44,6 +44,6 @@ class StellaConfig(BaseSettings):
     postiz_token: SecretStr = Field(default=SecretStr(""))
     publicacao_modo: Literal["semi-auto", "auto"] = "semi-auto"
 
-    # AM-M1: chaves de pesquisa web (cascata Brave→Perplexity)
-    brave_api_key: SecretStr = Field(default=SecretStr(""))
+    # AM-M1: chaves de pesquisa web (cascata Tavily→Perplexity)
+    tavily_api_key: SecretStr = Field(default=SecretStr(""))
     perplexity_api_key: SecretStr = Field(default=SecretStr(""))

@@ -1,4 +1,4 @@
-"""Testes do Pesquisador — cascata Brave → Perplexity → ... → digest vazio."""
+"""Testes do Pesquisador — cascata Tavily → Perplexity → ... → digest vazio."""
 
 from typing import Any
 
@@ -25,8 +25,8 @@ def _mcp_ok(nome: str, category: str = "research") -> FakeMCP:
     )
 
 
-def test_brave_responde_perplexity_nao_eh_chamado():
-    brave = _mcp_ok("brave-search")
+def test_tavily_responde_perplexity_nao_eh_chamado():
+    brave = _mcp_ok("tavily")
     perplexity = _mcp_ok("perplexity")
     p = Pesquisador(research_mcps=[brave, perplexity])
     digest = p.pesquisar(pilares=["pilar 1", "pilar 2"])
@@ -35,8 +35,8 @@ def test_brave_responde_perplexity_nao_eh_chamado():
     assert not perplexity.calls, "perplexity NÃO deveria ter sido chamado"
 
 
-def test_brave_falha_cai_para_perplexity():
-    brave = _MCPFalhante(nome="brave-search", category="research")
+def test_tavily_falha_cai_para_perplexity():
+    brave = _MCPFalhante(nome="tavily", category="research")
     perplexity = _mcp_ok("perplexity")
     p = Pesquisador(research_mcps=[brave, perplexity])
     digest = p.pesquisar(pilares=["pilar 1"])
@@ -45,7 +45,7 @@ def test_brave_falha_cai_para_perplexity():
 
 
 def test_todos_falham_devolve_digest_vazio():
-    brave = _MCPFalhante(nome="brave-search", category="research")
+    brave = _MCPFalhante(nome="tavily", category="research")
     perplexity = _MCPFalhante(nome="perplexity", category="research")
     p = Pesquisador(research_mcps=[brave, perplexity])
     digest = p.pesquisar(pilares=["pilar 1"])
@@ -59,7 +59,7 @@ def test_sem_mcps_devolve_vazio():
 
 
 def test_queries_derivam_dos_pilares():
-    brave = _mcp_ok("brave-search")
+    brave = _mcp_ok("tavily")
     p = Pesquisador(research_mcps=[brave])
     p.pesquisar(pilares=["pilar 1", "pilar 2"])
     # As 2 queries esperadas (uma por pilar)

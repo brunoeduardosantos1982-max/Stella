@@ -19,7 +19,7 @@ capacidades_externas:
     - pesquisa-tendencias-web
     - revisao-padroes-marca
   mcps:
-    - brave-search
+    - tavily
     - perplexity
   rag: null
 

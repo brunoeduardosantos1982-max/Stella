@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.gemma_nvidia import GemmaNvidiaProvider
 from stella.adapters.llm.router import LLMRouter
+from stella.adapters.research.perplexity_client import PerplexityClient
+from stella.adapters.research.tavily_client import TavilyClient
 from stella.adapters.vault.obsidian_vault import ObsidianVaultRepository
 from stella.domain.conexao_mcp import ConexaoMCP
 from stella.framework.builder import FrameworkDeps, build_agent
@@ -102,24 +104,26 @@ def build_stella(config: StellaConfig) -> Stella:
             category="automation",
         )
     )
-    # AM-M1 Task 4: Brave Search MCP (primário da cascata de pesquisa)
-    if config.brave_api_key.get_secret_value():
+    # AM-M1 Task 4: Tavily Search (primário da cascata de pesquisa)
+    if config.tavily_api_key.get_secret_value():
         mcp_reg.register(
-            ConexaoMCP(
-                nome="brave-search",
+            TavilyClient(
+                nome="tavily",
                 tipo="rest-api",
-                endpoint="https://api.search.brave.com/res/v1/web/search",
+                endpoint="https://api.tavily.com/search",
                 category="research",
+                api_key=config.tavily_api_key.get_secret_value(),
             )
         )
-    # AM-M1 Task 5: Perplexity MCP (fallback da cascata de pesquisa)
+    # AM-M1 Task 5: Perplexity (fallback da cascata de pesquisa)
     if config.perplexity_api_key.get_secret_value():
         mcp_reg.register(
-            ConexaoMCP(
+            PerplexityClient(
                 nome="perplexity",
                 tipo="rest-api",
                 endpoint="https://api.perplexity.ai/chat/completions",
                 category="research",
+                api_key=config.perplexity_api_key.get_secret_value(),
             )
         )
     rag_reg = RAGRegistry()

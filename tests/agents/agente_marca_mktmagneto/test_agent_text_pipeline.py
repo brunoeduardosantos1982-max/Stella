@@ -85,7 +85,7 @@ def test_pipeline_de_texto_gera_3_posts() -> None:
         ]
     )
     brave: Any = FakeMCP(
-        nome="brave-search",
+        nome="tavily",
         category="research",
         resultados={
             "pilar 1 tendências 2026": [{"titulo": "x"}],
@@ -162,7 +162,7 @@ def test_pipeline_com_visual_gera_3_imagens() -> None:
         ]
     )
     brave: Any = FakeMCP(
-        nome="brave-search",
+        nome="tavily",
         category="research",
         resultados={
             "pilar 1 tendências 2026": [{"titulo": "x"}],
@@ -205,7 +205,7 @@ def test_falha_no_visual_de_um_post_nao_derruba_os_outros() -> None:
         ]
     )
     brave: Any = FakeMCP(
-        nome="brave-search",
+        nome="tavily",
         category="research",
         resultados={
             "pilar 1 tendências 2026": [{"titulo": "x"}],
@@ -258,7 +258,7 @@ def test_pipeline_final_escreve_3_notas_na_fila_e_atualiza_calendario() -> None:
         ]
     )
     brave = FakeMCP(
-        nome="brave-search",
+        nome="tavily",
         category="research",
         resultados={f"pilar {p} tendências 2026": [{"titulo": "x"}] for p in (1, 2, 3, 4)},
     )
@@ -321,7 +321,7 @@ def test_autoqa_refaz_e_aceita() -> None:
         ]
     )
     brave = FakeMCP(
-        nome="brave-search",
+        nome="tavily",
         category="research",
         resultados={f"pilar {p} tendências 2026": [{"x": 1}] for p in (1, 2, 3, 4)},
     )
