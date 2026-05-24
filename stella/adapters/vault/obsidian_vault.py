@@ -62,6 +62,11 @@ class ObsidianVaultRepository(VaultRepository):
             raise FileNotFoundError(f"Arquivo não encontrado: {path}")
         return full.read_bytes()
 
+    def write_binary(self, path: str, dados: bytes) -> None:
+        full = self._full_path(path)
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_bytes(dados)
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         cutoff = since.timestamp() if since is not None else None
 

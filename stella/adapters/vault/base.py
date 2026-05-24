@@ -88,3 +88,8 @@ class VaultRepository(ABC):
         """Lê um arquivo binário do vault (ex: imagem). Levanta FileNotFoundError
         se não existir."""
         ...
+
+    @abstractmethod
+    def write_binary(self, path: str, dados: bytes) -> None:
+        """Escreve um arquivo binário no vault (ex: imagem). Cria pastas intermediárias."""
+        ...
