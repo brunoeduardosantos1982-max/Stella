@@ -7,6 +7,7 @@ from stella.app import Stella, build_stella
 from stella.framework.cli.agent_cli import agent_app
 from stella.framework.errors import (
     AgentExecutionError,
+    AgentInputError,
     AgentNotFoundError,
     AgentTimeoutError,
     AgentUnavailableError,
@@ -40,6 +41,8 @@ def _traduzir_erro_jarvis(erro: FrameworkError) -> str:
         return f"Senhor, o agente demorou demais para responder: {msg}. Cancelei."
     if isinstance(erro, AgentExecutionError):
         return f"Senhor, o agente falhou ao executar: {msg}"
+    if isinstance(erro, AgentInputError):
+        return f"Senhor, o pedido enviado ao agente esta incompleto: {msg}"
     if isinstance(erro, ManifestError):
         return f"Senhor, configuracao do manifest invalida: {msg}"
     if isinstance(erro, DelegationDepthExceeded):
@@ -125,6 +128,28 @@ def pergunta(
     except UsecaseError as e:
         typer.echo(f"Senhor, não consegui responder: {e}", err=True)
         raise typer.Exit(code=1) from e
+
+
+@app.command()
+def conteudo(
+    marca: str = typer.Argument(..., help="Marca alvo (ex: mktmagneto)"),
+) -> None:
+    """Gera o lote semanal de conteúdo da marca (rascunhos na fila do publicador)."""
+    if marca != "mktmagneto":
+        typer.echo(f"Senhor, ainda só conheço o agente da marca 'mktmagneto'. Recebi '{marca}'.")
+        raise typer.Exit(code=2)
+
+    stella = _build_stella_para_cli()
+    agente = stella.registry.get("agente_marca_mktmagneto")
+    out = agente.execute({})
+
+    if out.sucesso:
+        n = out.resultado.get("posts_em_rascunho", 0)
+        msg = " ".join(out.mensagens) if out.mensagens else ""
+        typer.echo(f"Senhor, {n} post(s) em rascunho na fila. {msg}".strip())
+    else:
+        typer.echo(f"Senhor, deu ruim: {' / '.join(out.mensagens)}")
+        raise typer.Exit(code=1)
 
 
 @app.command()

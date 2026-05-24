@@ -70,12 +70,16 @@ class VaultRepository(ABC):
         ...
 
     @abstractmethod
-    def scoped(self, pattern: str) -> "VaultRepository":
-        """Devolve um proxy do vault limitado ao glob `pattern`.
+    def scoped(self, pattern: str | list[str]) -> "VaultRepository":
+        """Devolve um proxy do vault limitado ao glob `pattern` (ou lista de patterns).
 
         Qualquer operacao em path que nao bate com `pattern` levanta
         PermissionError. Usado pelo builder para isolar cada agente ao
         escopo declarado em seu manifest (manifest.vault_scope).
+
+        Note: Atualmente aceita str ou list[str] na assinatura, mas internamente
+        processa apenas str. Task 2 estenderá ScopedVaultRepository para suportar
+        múltiplos patterns.
         """
         ...
 
@@ -83,4 +87,9 @@ class VaultRepository(ABC):
     def read_binary(self, path: str) -> bytes:
         """Lê um arquivo binário do vault (ex: imagem). Levanta FileNotFoundError
         se não existir."""
+        ...
+
+    @abstractmethod
+    def write_binary(self, path: str, dados: bytes) -> None:
+        """Escreve um arquivo binário no vault (ex: imagem). Cria pastas intermediárias."""
         ...

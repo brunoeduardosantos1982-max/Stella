@@ -15,20 +15,26 @@ from stella.adapters.vault.base import Note, VaultRepository
 
 
 class ScopedVaultRepository(VaultRepository):
-    """Proxy que limita um VaultRepository ao paths que batem com `pattern`."""
+    """Proxy que limita um VaultRepository ao paths que batem com `pattern` (ou lista de patterns)."""
 
-    def __init__(self, inner: VaultRepository, pattern: str) -> None:
+    def __init__(self, inner: VaultRepository, patterns: str | list[str]) -> None:
         self._inner = inner
-        self._pattern = pattern
+        # Normalizar string única → lista de 1 padrão
+        if isinstance(patterns, str):
+            self._patterns = [patterns]
+        else:
+            self._patterns = list(patterns)
 
     def _check(self, path: str) -> None:
-        """Levanta PermissionError se `path` nao bate com o glob do scope.
+        """Levanta PermissionError se `path` nao bate com NENHUM dos globs do scope (OR-match).
 
         Normaliza separador de path (Windows usa '\\' mas comparamos como '/').
         """
         normalizado = path.replace("\\", "/")
-        if not _glob_match(normalizado, self._pattern):
-            raise PermissionError(f"Path '{path}' fora do escopo '{self._pattern}' deste vault")
+        # OR-match: path deve bater em pelo menos um dos padrões
+        if not any(_glob_match(normalizado, pattern) for pattern in self._patterns):
+            patterns_str = " OR ".join(self._patterns)
+            raise PermissionError(f"Path '{path}' fora do escopo '{patterns_str}' deste vault")
 
     def read_note(self, path: str) -> Note:
         self._check(path)
@@ -57,14 +63,30 @@ class ScopedVaultRepository(VaultRepository):
         self._check(path)
         return self._inner.read_binary(path)
 
+    def write_binary(self, path: str, dados: bytes) -> None:
+        self._check(path)
+        self._inner.write_binary(path, dados)
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         """Combina o glob do scope com o pattern do agente — devolve apenas
-        notas que satisfazem AMBOS (intersecao via filtro no resultado)."""
-        bruto = self._inner.scan_recursive(pattern, since=since)
-        return [n for n in bruto if _glob_match(n.path.replace("\\", "/"), self._pattern)]
+        notas que satisfazem AMBOS (intersecao via filtro no resultado).
 
-    def scoped(self, pattern: str) -> VaultRepository:
-        """Permite encadear: vault.scoped(A).scoped(B). Ambos validam."""
+        Usando OR-match nos padrões do scope: nota é incluída se bater em
+        qualquer um dos patterns AND no pattern do agente.
+        """
+        bruto = self._inner.scan_recursive(pattern, since=since)
+        return [
+            n
+            for n in bruto
+            if any(_glob_match(n.path.replace("\\", "/"), p) for p in self._patterns)
+        ]
+
+    def scoped(self, pattern: str | list[str]) -> VaultRepository:
+        """Permite encadear: vault.scoped(A).scoped(B). Ambos validam.
+
+        Aceita string única ou lista de padrões. Com lista, faz OR-match:
+        path é válido se bater em qualquer um dos padrões.
+        """
         return ScopedVaultRepository(self, pattern)
 
 

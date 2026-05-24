@@ -87,7 +87,7 @@ class FakeVault(VaultRepository):
             resultado.append(Note(path=path, frontmatter=dict(fm), content=content))
         return resultado
 
-    def scoped(self, pattern: str) -> VaultRepository:
+    def scoped(self, pattern: str | list[str]) -> VaultRepository:
         from stella.adapters.vault.scoped import ScopedVaultRepository
 
         return ScopedVaultRepository(self, pattern)

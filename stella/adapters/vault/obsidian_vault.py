@@ -62,6 +62,11 @@ class ObsidianVaultRepository(VaultRepository):
             raise FileNotFoundError(f"Arquivo não encontrado: {path}")
         return full.read_bytes()
 
+    def write_binary(self, path: str, dados: bytes) -> None:
+        full = self._full_path(path)
+        full.parent.mkdir(parents=True, exist_ok=True)
+        full.write_bytes(dados)
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         cutoff = since.timestamp() if since is not None else None
 
@@ -75,7 +80,7 @@ class ObsidianVaultRepository(VaultRepository):
             resultado.append(self.read_note(rel))
         return resultado
 
-    def scoped(self, pattern: str) -> "VaultRepository":
+    def scoped(self, pattern: str | list[str]) -> "VaultRepository":
         # Import local para evitar ciclo na carga do modulo
         from stella.adapters.vault.scoped import ScopedVaultRepository
 

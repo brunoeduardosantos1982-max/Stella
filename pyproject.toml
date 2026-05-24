@@ -27,6 +27,9 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
 ]
+visual = [
+    "playwright>=1.40",
+]
 
 [project.scripts]
 stella = "stella.frontends.cli:main"

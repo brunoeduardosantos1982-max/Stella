@@ -1,7 +1,9 @@
 .env
+.env.local
 .obsidian/
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
 .coverage
 htmlcov/
@@ -11,3 +13,7 @@ build/
 .venv/
 venv/
 uv.lock
+*.log
+.vscode/
+.idea/
+Thumbs.db

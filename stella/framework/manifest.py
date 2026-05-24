@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from stella.domain.enums import ModeloIA
 from stella.framework.errors import (
@@ -61,16 +61,37 @@ class AgentManifest(BaseModel):
 
     # Capacidades externas (decisão #7):
     capacidades_externas: CapacidadesExternas = Field(default_factory=CapacidadesExternas)
-    vault_scope: str = Field(
-        default="C04 Claude Obsidian/Stella-workspace/**",
-        description="Glob limitando o que este agente pode ler/escrever no vault.",
+    vault_scope: list[str] = Field(
+        default=["C04 Claude Obsidian/Stella-workspace/**"],
+        description="Lista de globs limitando o que este agente pode ler/escrever no vault.",
     )
 
     # Coordenadores opcionalmente listam seus especialistas (auditoria):
     especialistas: list[str] = Field(default_factory=list)
 
+    @field_validator("vault_scope", mode="before")
+    @classmethod
+    def normalize_vault_scope(cls, v: str | list[str]) -> list[str]:
+        """Normaliza vault_scope para list[str]. Aceita string única ou lista."""
+        if isinstance(v, str):
+            return [v]
+        if isinstance(v, list):
+            return v
+        return [str(v)]
+
     # HTTP-only: endpoint do servidor remoto
     endpoint: str | None = None
+    timeout_s: float = Field(
+        default=300.0,
+        gt=0,
+        description="Timeout total da execucao do agente em segundos.",
+    )
+
+    @model_validator(mode="after")
+    def validate_execucao_http(self) -> AgentManifest:
+        if self.execucao == "http" and not self.endpoint:
+            raise ValueError("manifest com execucao='http' exige endpoint")
+        return self
 
 
 def load_manifest(path: Path) -> AgentManifest:

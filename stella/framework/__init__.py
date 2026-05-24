@@ -23,6 +23,7 @@ from stella.framework.client import (
 )
 from stella.framework.errors import (
     AgentExecutionError,
+    AgentInputError,
     AgentNotFoundError,
     AgentTimeoutError,
     AgentUnavailableError,
@@ -58,6 +59,7 @@ __all__ = [
     "Agent",
     "AgentClient",
     "AgentExecutionError",
+    "AgentInputError",
     "AgentManifest",
     "AgentNotFoundError",
     "AgentOutput",
