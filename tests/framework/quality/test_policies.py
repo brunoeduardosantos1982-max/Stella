@@ -41,3 +41,18 @@ def test_policy_input_com_skip_review_pula_mesmo_em_setor_critico() -> None:
 def test_policy_skip_review_false_nao_pula() -> None:
     p = ReviewPolicy()
     assert p.deve_revisar(_manifest(setor="copy"), {"--skip-review": False}) is True
+
+
+def test_deve_revisar_retorna_true_para_setor_marketing() -> None:
+    """marketing é warn-only — deve_revisar retorna True para ativar o reviewer."""
+    p = ReviewPolicy()
+    assert p.deve_revisar(_manifest(tipo="especialista", setor="marketing"), {}) is True
+
+
+def test_setores_warn_only_contem_marketing() -> None:
+    assert "marketing" in ReviewPolicy.SETORES_WARN_ONLY
+
+
+def test_setor_operacional_ainda_nao_revisado() -> None:
+    p = ReviewPolicy()
+    assert p.deve_revisar(_manifest(tipo="especialista", setor="operacional"), {}) is False

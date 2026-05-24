@@ -19,6 +19,7 @@ class ReviewPolicy:
     """Politica de quando aplicar QualityReviewer."""
 
     SETORES_QA_OBRIGATORIO = frozenset({"design", "copy", "codigo"})
+    SETORES_WARN_ONLY = frozenset({"marketing"})
 
     def deve_revisar(self, manifest: AgentManifest, input_original: dict[str, Any]) -> bool:
         if input_original.get("--skip-review"):
@@ -26,5 +27,7 @@ class ReviewPolicy:
         if manifest.tipo == "coordenador":
             return True
         if manifest.setor in self.SETORES_QA_OBRIGATORIO:
+            return True
+        if manifest.setor in self.SETORES_WARN_ONLY:
             return True
         return False
