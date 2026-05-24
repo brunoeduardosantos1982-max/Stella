@@ -9,6 +9,7 @@ import yaml
 
 from stella.adapters.llm.base import LLMProvider
 
+from .planejador import _strip_code_fence
 from .redator import PostTexto
 
 Veredicto = Literal["aprovado", "refazer", "aceito_com_aviso"]
@@ -40,7 +41,7 @@ class AutoQA:
         resposta = self.llm.complete(prompt).texto
 
         try:
-            dados = yaml.safe_load(resposta) or {}
+            dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
         except yaml.YAMLError:
             dados = {}
         if not isinstance(dados, dict):

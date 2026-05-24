@@ -6,7 +6,7 @@ from stella.adapters.vault.obsidian_vault import ObsidianVaultRepository
 from stella.domain.conexao_mcp import ConexaoMCP
 from stella.framework.agent import Agent, AgentOutput
 from stella.framework.builder import FrameworkDeps, build_agent
-from stella.framework.errors import MCPNotFoundError, SkillNotFoundError
+from stella.framework.errors import SkillNotFoundError
 from stella.framework.manifest import AgentManifest, CapacidadesExternas
 from stella.framework.registry import AgentRegistry
 from stella.framework.resources.mcp_registry import MCPRegistry
@@ -129,14 +129,19 @@ def test_build_agent_resolve_mcps_e_injeta(tmp_path: Path, monkeypatch: pytest.M
     assert len(agent._mcps) == 1
 
 
-def test_build_agent_mcp_declarada_mas_nao_registrada_levanta(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_build_agent_mcp_nao_registrada_e_ignorada_com_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
+    """MCP não registrada é ignorada com warning — não levanta erro (MCP opcional)."""
     _instalar_agente_no_modulo(monkeypatch, "agente_x")
     deps = _deps_para_teste(tmp_path)
     m = _manifest("agente_x", mcps=["sem-mcp"])
-    with pytest.raises(MCPNotFoundError, match="sem-mcp"):
-        build_agent(m, deps)
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="stella.framework.builder"):
+        agent = build_agent(m, deps)
+    assert agent._mcps == []
+    assert "sem-mcp" in caplog.text
 
 
 def test_build_agent_modulo_inexistente_levanta_import_error(

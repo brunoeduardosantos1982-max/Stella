@@ -59,9 +59,15 @@ def build_agent(manifest: AgentManifest, deps: FrameworkDeps) -> Agent:
             a classe Agent no __init__.py.
         AttributeError: __init__.py do agente nao expoe atributo `Agent`.
     """
+    _log = deps.logger or logging.getLogger("stella.framework.builder")
     cap = manifest.capacidades_externas
     skills = [deps.skills_reg.get(sid) for sid in cap.skills]
-    mcps = [deps.mcp_reg.get(nome) for nome in cap.mcps]
+    mcps = []
+    for nome in cap.mcps:
+        try:
+            mcps.append(deps.mcp_reg.get(nome))
+        except Exception:  # noqa: BLE001 — MCP não registrada é opcional (sem chave)
+            _log.warning("Agente %s: MCP '%s' nao registrada — ignorada", manifest.nome, nome)
     rag = deps.rag_reg.get(cap.rag) if cap.rag else None
 
     modulo = import_module(f"stella.agents.{manifest.nome}")

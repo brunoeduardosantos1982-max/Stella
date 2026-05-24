@@ -8,7 +8,7 @@ import yaml
 
 from stella.adapters.llm.base import LLMProvider
 
-from .planejador import Pauta
+from .planejador import Pauta, _strip_code_fence
 
 
 @dataclass
@@ -36,7 +36,7 @@ class Redator:
         prompt = self._montar_prompt(pauta, knowledge)
         resposta = self.llm.complete(prompt).texto
         try:
-            dados = yaml.safe_load(resposta) or {}
+            dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
         except yaml.YAMLError:
             dados = {}
         if not isinstance(dados, dict):

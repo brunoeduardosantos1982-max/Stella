@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Any
 
 import yaml
 
 from stella.adapters.llm.base import LLMProvider
+
+_FENCE_RE = re.compile(r"^```[a-z]*\n?(.*?)\n?```\s*$", re.DOTALL)
+
+
+def _strip_code_fence(text: str) -> str:
+    m = _FENCE_RE.match(text.strip())
+    return m.group(1) if m else text
 
 
 @dataclass
@@ -40,7 +48,7 @@ class Planejador:
         prompt = self._montar_prompt(pilares_briefing, digest, titulos_evitar)
         resposta = self.llm.complete(prompt).texto
         try:
-            dados = yaml.safe_load(resposta) or {}
+            dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
         except yaml.YAMLError:
             return []
         if not isinstance(dados, dict):
