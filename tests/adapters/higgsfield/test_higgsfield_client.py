@@ -75,5 +75,5 @@ def test_client_levanta_error_quando_job_falha() -> None:
 def test_client_levanta_error_em_status_http_erro() -> None:
     transport = _mock_transport([(401, {"message": "Unauthorized"})])
     client = HttpHiggsFieldClient(token="tok-invalido", _transport=transport)
-    with pytest.raises(HiggsFieldError):
+    with pytest.raises(HiggsFieldError, match="Higgsfield HTTP 401"):
         client.generate_image("cena")

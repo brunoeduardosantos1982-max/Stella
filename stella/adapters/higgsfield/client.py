@@ -52,7 +52,9 @@ class HttpHiggsFieldClient:
         except httpx.RequestError as e:
             raise HiggsFieldError(f"Higgsfield conexão falhou: {e}") from e
 
-        job_id: str = r.json()["job_id"]
+        job_id = r.json().get("job_id")
+        if not job_id:
+            raise HiggsFieldError("Higgsfield: resposta sem job_id")
         return self._aguardar(job_id)
 
     def _aguardar(self, job_id: str) -> str:
@@ -67,10 +69,22 @@ class HttpHiggsFieldClient:
             data = r.json()
             status = data.get("status", "")
             if status == "completed":
-                return str(data["image_url"])
+                image_url = data.get("image_url")
+                if not image_url:
+                    raise HiggsFieldError("Higgsfield: resposta sem image_url")
+                return str(image_url)
             if status == "failed":
                 raise HiggsFieldError(f"Higgsfield geração falhou: {data.get('error', 'unknown')}")
 
         raise HiggsFieldError(
             f"Higgsfield job {job_id} não completou em {_POLL_MAX_ATTEMPTS * _POLL_INTERVAL_S}s"
         )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> HttpHiggsFieldClient:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        self.close()
