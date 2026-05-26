@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Protocol
 
 
 class HiggsFieldError(Exception):
     """Erro do adapter Higgsfield (API, timeout, falha de geração)."""
 
 
-@runtime_checkable
 class HiggsFieldClient(Protocol):
     def generate_image(self, prompt: str, soul_id: str | None = None) -> str:
         """Gera imagem com Soul ID e retorna URL pública.

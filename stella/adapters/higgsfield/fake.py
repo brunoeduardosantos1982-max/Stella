@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 
 class FakeHiggsField:
     """Implementação fake do HiggsFieldClient — sem chamadas reais."""
@@ -11,5 +13,5 @@ class FakeHiggsField:
 
     def generate_image(self, prompt: str, soul_id: str | None = None) -> str:
         self.calls.append({"prompt": prompt, "soul_id": soul_id})
-        slug = abs(hash(prompt))
+        slug = hashlib.md5(prompt.encode()).hexdigest()[:12]
         return f"https://fake.higgsfield.ai/img/{slug}.jpg"
