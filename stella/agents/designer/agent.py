@@ -94,7 +94,7 @@ class Agent(BaseAgent):
         try:
             caminhos = self._vault.list_files_in_folder(folder, _FOTO_EXTS)  # type: ignore[union-attr]
             return [p.rsplit("/", 1)[-1] for p in caminhos]
-        except (FileNotFoundError, PermissionError):
+        except OSError:
             return []
 
     def _decidir_template(
@@ -143,6 +143,8 @@ class Agent(BaseAgent):
             dados = {}
 
         template = str(dados.get("template_escolhido", "capa-carrossel")).strip()
+        if not template or template == "None":
+            template = "capa-carrossel"
         foto = str(dados.get("foto_escolhida", "")).strip()
         if template in _TEMPLATES_COM_FOTO and not fotos:
             template = "capa-carrossel"
