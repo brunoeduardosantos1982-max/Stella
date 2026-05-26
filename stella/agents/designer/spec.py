@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Literal
 
 DesignStatus = Literal["pending_render", "rendering", "rendered", "error"]
@@ -36,4 +36,5 @@ class DesignSpec:
         data = json.loads(text)
         slides_raw = data.pop("slides", [])
         slides = [SlideSpec(**s) for s in slides_raw]
-        return cls(slides=slides, **data)
+        valid = {f.name for f in fields(cls)}
+        return cls(slides=slides, **{k: v for k, v in data.items() if k in valid})
