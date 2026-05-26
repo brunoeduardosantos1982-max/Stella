@@ -102,15 +102,17 @@ class AutoQA:
         return ResultadoQA(veredicto="refazer", motivo=motivo)
 
     def _montar_prompt_copy(self, copy: dict[str, Any], knowledge_pack: dict[str, Any]) -> str:
+        briefing = knowledge_pack.get("briefing", "")
         voz = knowledge_pack.get("voz", "")
         cta = knowledge_pack.get("cta_padrao", "")
         legenda = copy.get("legenda", "")
         hashtags = copy.get("hashtags", [])
+        if briefing:
+            contexto = f"BRIEFING DA MARCA:\n{briefing}\n\n"
+        else:
+            contexto = f"VOZ ESPERADA: {voz}\nCTA PADRÃO: {cta}\n\n"
         return (
-            "Aplique a skill `revisao-padroes-marca`.\n\n"
-            f"VOZ ESPERADA: {voz}\n"
-            f"CTA PADRÃO: {cta}\n\n"
-            f"LEGENDA:\n{legenda}\n\n"
+            "Aplique a skill `revisao-padroes-marca`.\n\n" + contexto + f"LEGENDA:\n{legenda}\n\n"
             f"HASHTAGS ({len(hashtags)}): {hashtags}\n\n"
             "Devolva APENAS YAML:\n"
             "veredicto: aprovado | refazer\n"
