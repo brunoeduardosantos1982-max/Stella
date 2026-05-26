@@ -93,3 +93,13 @@ class VaultRepository(ABC):
     def write_binary(self, path: str, dados: bytes) -> None:
         """Escreve um arquivo binário no vault (ex: imagem). Cria pastas intermediárias."""
         ...
+
+    @abstractmethod
+    def list_files_in_folder(self, folder: str, extensions: set[str] | None = None) -> list[str]:
+        """Lista arquivos (não .md) diretos em `folder`, opcionalmente filtrados por extensão.
+
+        `extensions` deve conter strings com ponto: {".jpg", ".png"}.
+        Retorna paths relativos à raiz do vault.
+        Retorna [] se a pasta não existir (não levanta exceção).
+        """
+        ...

@@ -80,6 +80,22 @@ class FakeVault(VaultRepository):
         """Helper de teste — armazena bytes para read_binary recuperar."""
         self._binarios[path] = dados
 
+    def list_files_in_folder(self, folder: str, extensions: set[str] | None = None) -> list[str]:
+        prefixo = folder.rstrip("/") + "/"
+        resultado = []
+        for path in self._binarios:
+            if not path.startswith(prefixo):
+                continue
+            remainder = path[len(prefixo) :]
+            if "/" in remainder:
+                continue
+            if extensions:
+                ext = ("." + remainder.rsplit(".", 1)[-1].lower()) if "." in remainder else ""
+                if ext not in extensions:
+                    continue
+            resultado.append(path)
+        return sorted(resultado)
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         cutoff = since.timestamp() if since is not None else None
         resultado: list[Note] = []

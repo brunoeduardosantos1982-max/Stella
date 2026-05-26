@@ -67,6 +67,20 @@ class ObsidianVaultRepository(VaultRepository):
         full.parent.mkdir(parents=True, exist_ok=True)
         full.write_bytes(dados)
 
+    def list_files_in_folder(self, folder: str, extensions: set[str] | None = None) -> list[str]:
+        full = self._full_path(folder)
+        if not full.exists():
+            return []
+        resultado = []
+        for arquivo in sorted(full.iterdir()):
+            if not arquivo.is_file():
+                continue
+            if extensions and arquivo.suffix.lower() not in extensions:
+                continue
+            rel = arquivo.relative_to(self._root)
+            resultado.append(str(rel).replace("\\", "/"))
+        return resultado
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         cutoff = since.timestamp() if since is not None else None
 

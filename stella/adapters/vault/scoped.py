@@ -67,6 +67,11 @@ class ScopedVaultRepository(VaultRepository):
         self._check(path)
         self._inner.write_binary(path, dados)
 
+    def list_files_in_folder(self, folder: str, extensions: set[str] | None = None) -> list[str]:
+        marcador = f"{folder.rstrip('/')}/.scope_check"
+        self._check(marcador)
+        return self._inner.list_files_in_folder(folder, extensions)
+
     def scan_recursive(self, pattern: str, since: datetime | None = None) -> list[Note]:
         """Combina o glob do scope com o pattern do agente — devolve apenas
         notas que satisfazem AMBOS (intersecao via filtro no resultado).
