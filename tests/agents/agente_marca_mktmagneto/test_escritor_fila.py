@@ -3,8 +3,8 @@
 from datetime import datetime, timedelta, timezone
 
 from stella.agents.agente_marca_mktmagneto.escritor_fila import EscritorFila
-from stella.agents.agente_marca_mktmagneto.redator import PostTexto
 from stella.agents.designer.spec import DesignSpec
+from stella.domain.post import PostTexto
 from stella.framework.testing.fakes import FakeVault
 
 _BRT = timezone(timedelta(hours=-3))

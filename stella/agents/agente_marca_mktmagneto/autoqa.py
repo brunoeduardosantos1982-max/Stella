@@ -8,9 +8,9 @@ from typing import Any, Literal
 import yaml
 
 from stella.adapters.llm.base import LLMProvider
+from stella.domain.post import PostTexto
 
 from .planejador import _strip_code_fence
-from .redator import PostTexto
 
 Veredicto = Literal["aprovado", "refazer", "aceito_com_aviso"]
 

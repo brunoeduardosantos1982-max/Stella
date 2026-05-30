@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
+from stella.domain.post import PostTexto
 from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
 
@@ -18,7 +19,6 @@ from .carregador_marca import CarregadorMarca
 from .escritor_fila import EscritorFila
 from .pesquisador import Pesquisador, _MCPInvocavel
 from .planejador import Planejador
-from .redator import PostTexto
 
 _BRT = timezone(timedelta(hours=-3))
 _PILARES = [1, 2, 3, 4]
