@@ -31,7 +31,7 @@ class GemmaNvidiaProvider(LLMProvider):
         client: Any = None,
         tracker: UsageTracker | None = None,
     ) -> None:
-        self._client = client or OpenAI(
+        self._client: Any = client or OpenAI(
             base_url=_NVIDIA_BASE_URL,
             api_key=api_key,
         )

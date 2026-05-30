@@ -37,7 +37,7 @@ class AnthropicProvider(LLMProvider):
         tracker: UsageTracker | None = None,
         modelo: str = _MODELO_DEFAULT,
     ) -> None:
-        self._client = client or Anthropic(api_key=api_key)
+        self._client: Any = client or Anthropic(api_key=api_key)
         self._max_tokens = max_tokens
         self._tracker = tracker
         self._modelo = modelo
