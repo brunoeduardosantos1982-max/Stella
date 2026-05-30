@@ -40,6 +40,8 @@ class NotebookLMRAGClient(RAGClient):
                 [self.bin, "auth", "check"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=self.timeout_s,
             )
         except (OSError, subprocess.TimeoutExpired):
@@ -66,6 +68,8 @@ class NotebookLMRAGClient(RAGClient):
                 ],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=self.timeout_s + 30,
             )
         except (OSError, subprocess.TimeoutExpired) as e:
