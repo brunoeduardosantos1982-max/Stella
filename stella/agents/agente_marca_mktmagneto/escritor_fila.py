@@ -7,7 +7,6 @@ from datetime import datetime
 from typing import Any
 
 from stella.adapters.vault.base import VaultRepository
-from stella.agents.designer.spec import DesignSpec
 
 from .redator import PostTexto
 
@@ -44,17 +43,7 @@ class EscritorFila:
         }
         if qa_warnings:
             frontmatter["qa_warnings"] = qa_warnings
-        if status == "needs_review":
-            self._marcar_spec_needs_review(design_spec_path)
 
         corpo = post.legenda + "\n\n" + " ".join(post.hashtags)
         self.vault.write_note(md_path, corpo, frontmatter)
         return md_path
-
-    def _marcar_spec_needs_review(self, design_spec_path: str) -> None:
-        try:
-            spec = DesignSpec.from_json(self.vault.read_binary(design_spec_path).decode("utf-8"))
-        except (FileNotFoundError, ValueError, TypeError):
-            return
-        spec.status = "needs_review"
-        self.vault.write_binary(design_spec_path, spec.to_json().encode("utf-8"))
