@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from stella.domain.enums import ModeloIA
 
 
-class OrigemSkill(str, Enum):
+class OrigemSkill(StrEnum):
     CORE = "core"
     CUSTOM = "custom"
 
