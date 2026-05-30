@@ -23,6 +23,23 @@ from .redator import PostTexto
 _BRT = timezone(timedelta(hours=-3))
 _PILARES = [1, 2, 3, 4]
 
+# Nicho da marca — âncora obrigatória das queries de pesquisa. Sem isso, o
+# Pesquisador buscava "pilar 1 tendências 2026" (vazio de sentido) e o digest
+# vinha contaminado com temas fora do nicho (decoração/Japandi).
+_NICHO = "IA aplicada a marketing e vendas"
+# Seeds de pesquisa por pilar. Pilar 4 (build-in-public) é produzido pelo Bruno
+# — fora da pesquisa automatizada.
+_PILAR_QUERIES: dict[int, str] = {
+    1: "mitos e erros ao adotar IA em negócios",
+    2: "ferramentas e prompts de IA para marketing",
+    3: "agentes de IA e automação para marketing e vendas",
+}
+
+
+def _queries_pesquisa() -> list[str]:
+    """Queries de pesquisa ancoradas no nicho da marca (uma por pilar 1–3)."""
+    return [f"{_NICHO}: {seed}" for seed in _PILAR_QUERIES.values()]
+
 
 class Agent(BaseAgent):
     """Coordenador que orquestra o lote semanal de 3 posts.
@@ -93,17 +110,18 @@ class Agent(BaseAgent):
                 mensagens=[f"Doc da marca ausente: {e}"],
             )
 
-        # 2. Pesquisa em cascata
+        # 2. Pesquisa em cascata — queries ancoradas no nicho da marca
         research_mcps = [m for m in self._mcps if getattr(m, "category", None) == "research"]
         digest = Pesquisador(research_mcps=cast(list[_MCPInvocavel], research_mcps)).pesquisar(
-            pilares=[f"pilar {p}" for p in _PILARES]
+            pilares=_queries_pesquisa()
         )
 
-        # 3. Planejamento (3 pautas)
+        # 3. Planejamento (3 pautas) — briefing injetado para ancorar no nicho
         pautas = Planejador(llm=self._llm.select(complexity="high")).planejar(
             pilares_briefing=_PILARES,
             digest=digest,
             calendario_atual=[],
+            briefing=knowledge.get("briefing", ""),
         )
 
         # 4. Pipeline por pauta: copy → QA → design → QA → fila
