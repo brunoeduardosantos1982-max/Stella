@@ -68,6 +68,11 @@ def build_agent(manifest: AgentManifest, deps: FrameworkDeps) -> Agent:
             mcps.append(deps.mcp_reg.get(nome))
         except Exception:  # noqa: BLE001 — MCP não registrada é opcional (sem chave)
             _log.warning("Agente %s: MCP '%s' nao registrada — ignorada", manifest.nome, nome)
+    for nome in cap.optional_mcps:
+        try:
+            mcps.append(deps.mcp_reg.get(nome))
+        except Exception:  # noqa: BLE001 — opcional: pode depender de chave externa
+            continue
     rag = deps.rag_reg.get(cap.rag) if cap.rag else None
 
     modulo = import_module(f"stella.agents.{manifest.nome}")

@@ -47,3 +47,7 @@ class StellaConfig(BaseSettings):
     # AM-M1: chaves de pesquisa web (cascata Tavily→Perplexity)
     tavily_api_key: SecretStr = Field(default=SecretStr(""))
     perplexity_api_key: SecretStr = Field(default=SecretStr(""))
+
+    # Designer MCP Híbrido: Higgsfield Soul ID
+    higgsfield_token: SecretStr = Field(default=SecretStr(""))
+    higgsfield_soul_id: str = Field(default="")

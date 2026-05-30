@@ -104,6 +104,7 @@ class Agent(BaseAgent):
         posts_em_rascunho = 0
 
         for i, pauta in enumerate(pautas):
+            post_warnings: list[str] = []
             pauta_dict: dict[str, Any] = {
                 "pilar": pauta.pilar,
                 "titulo": pauta.titulo,
@@ -135,7 +136,9 @@ class Agent(BaseAgent):
                 copy = copy_out2.resultado if copy_out2.sucesso else copy
                 if not autoqa.aprova_copy(copy=copy, knowledge_pack=knowledge):
                     aviso = autoqa.feedback_copy(copy=copy, knowledge_pack=knowledge)
-                    erros.append(f"Post {i + 1} copy QA aviso: {aviso}")
+                    msg = f"Post {i + 1} copy QA aviso: {aviso}"
+                    erros.append(msg)
+                    post_warnings.append(msg)
 
             # Design
             design_out = self.delegate_to(
@@ -145,12 +148,13 @@ class Agent(BaseAgent):
                 erros.append(f"Post {i + 1}: designer falhou — {design_out.mensagens}")
                 continue
             designer_resultado = design_out.resultado
-            png_bytes: bytes = designer_resultado.get("png_bytes", b"")
 
             # QA visual — apenas aviso, nunca bloqueia
             if not autoqa.aprova_visual(copy=copy, designer_resultado=designer_resultado):
                 aviso_v = autoqa.feedback_visual(copy=copy, designer_resultado=designer_resultado)
-                erros.append(f"Post {i + 1} visual QA aviso: {aviso_v}")
+                msg = f"Post {i + 1} visual QA aviso: {aviso_v}"
+                erros.append(msg)
+                post_warnings.append(msg)
 
             # Gravar na fila
             post_id = datas[i].strftime("%Y-%m-%d") + f"-{i + 1:02d}"
@@ -162,7 +166,16 @@ class Agent(BaseAgent):
                 slides=copy.get("slides", []),
             )
             try:
-                escritor.escrever(post, post_id=post_id, png_bytes=png_bytes, agendar_para=datas[i])
+                design_spec_path: str = designer_resultado.get("design_spec_path", "")
+                status = "needs_review" if post_warnings else "pending_render"
+                escritor.escrever(
+                    post,
+                    post_id=post_id,
+                    design_spec_path=design_spec_path,
+                    agendar_para=datas[i],
+                    status=status,
+                    qa_warnings=post_warnings,
+                )
                 posts_em_rascunho += 1
             except Exception as e:  # noqa: BLE001
                 erros.append(f"Escrita do post {i + 1} falhou: {e}")

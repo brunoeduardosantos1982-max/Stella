@@ -9,7 +9,9 @@ from typing import Any, cast
 
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.llm.router import LLMRouter
+from stella.adapters.postiz.fake import FakePostiz
 from stella.agents.agente_marca_mktmagneto.agent import Agent as Coordenador
+from stella.agents.agente_publicador.agent import Agent as Publicador
 from stella.agents.copywriter.agent import Agent as Copywriter
 from stella.agents.designer.agent import Agent as Designer
 from stella.framework.testing.fakes import FakeLLM, FakeMCP, FakeVault
@@ -143,8 +145,10 @@ def test_pipeline_completo_gera_3_rascunhos() -> None:
     fila = [p for p in vault._store if "Stella-publicacao/fila/" in p and p.endswith(".md")]
     assert len(fila) == 3
 
-    pngs = [p for p in vault._binarios if p.endswith(".png")]
-    assert len(pngs) == 3
+    for path in fila:
+        nota = vault.read_note(path)
+        assert "design_spec" in nota.frontmatter
+        assert nota.frontmatter["status"] == "pending_render"
 
 
 def test_legenda_copywriter_chega_na_nota_da_fila() -> None:
@@ -188,6 +192,10 @@ def test_qa_warn_only_nao_bloqueia_post() -> None:
     assert out.resultado["posts_em_rascunho"] == 3
     # Aviso aparece em mensagens
     assert any("QA aviso" in m for m in out.mensagens)
+    fila = sorted(p for p in vault._store if "Stella-publicacao/fila/" in p and p.endswith(".md"))
+    nota_com_aviso = vault.read_note(fila[0])
+    assert nota_com_aviso.frontmatter["status"] == "needs_review"
+    assert "qa_warnings" in nota_com_aviso.frontmatter
 
 
 def test_pautas_nos_metadados_do_resultado() -> None:
@@ -220,3 +228,48 @@ def test_calendario_atualizado_apos_pipeline() -> None:
     cal = vault.read_note(cal_path)
     assert "planejado" in cal.content.lower()
     assert "conversa" in cal.content.lower()  # titulo do pilar 1
+
+
+def test_pipeline_designspec_render_simulado_publicador_publica_carrossel() -> None:
+    """E2E local: marketing gera fila, render simulado preenche imagens, publicador agenda."""
+    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    copy_llm = FakeLLM(responses=[_COPY_YAML, _COPY_YAML, _COPY_YAML])
+    design_llm = FakeLLM(responses=[_DESIGN_YAML, _DESIGN_YAML, _DESIGN_YAML])
+
+    vault = _vault()
+    vault.write_note(
+        "C04 Claude Obsidian/Stella-publicacao/marcas.md",
+        "",
+        {"marcas": {"mktmagneto": {"instagram": "canal-ig-1"}}},
+    )
+    coordenador = _wired_agent(coord_llm, copy_llm, design_llm, vault=vault)
+    out = coordenador.execute({})
+    assert out.sucesso is True
+
+    fila = sorted(p for p in vault._store if "Stella-publicacao/fila/" in p and p.endswith(".md"))
+    assert fila
+    post_path = fila[0]
+    post_id = post_path.rsplit("/", 1)[-1].removesuffix(".md")
+
+    vault.write_binary(
+        f"C04 Claude Obsidian/Stella-publicacao/fila/{post_id}/slide-00.png", b"PNG0"
+    )
+    vault.write_binary(
+        f"C04 Claude Obsidian/Stella-publicacao/fila/{post_id}/slide-01.png", b"PNG1"
+    )
+    vault.update_frontmatter(
+        post_path,
+        {
+            "status": "rascunho",
+            "imagens": [f"{post_id}/slide-00.png", f"{post_id}/slide-01.png"],
+        },
+    )
+
+    postiz = FakePostiz()
+    pub = Publicador(vault=vault, postiz_client=postiz)
+    publicado = pub.execute({"modo": "auto"})
+
+    assert publicado.sucesso is True
+    assert post_path in publicado.resultado["publicados"]
+    assert postiz.uploads == [("slide-00.png", b"PNG0"), ("slide-01.png", b"PNG1")]
+    assert len(postiz.agendamentos[0].midias) == 2

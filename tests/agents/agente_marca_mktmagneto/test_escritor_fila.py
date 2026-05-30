@@ -1,72 +1,69 @@
-"""Testes do EscritorFila — escreve nota .md no formato exato do publicador."""
+"""Testes do EscritorFila com nova assinatura (design_spec_path)."""
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from stella.agents.agente_marca_mktmagneto.escritor_fila import EscritorFila
 from stella.agents.agente_marca_mktmagneto.redator import PostTexto
+from stella.agents.designer.spec import DesignSpec
 from stella.framework.testing.fakes import FakeVault
+
+_BRT = timezone(timedelta(hours=-3))
 
 
 def _post() -> PostTexto:
     return PostTexto(
-        pilar=1,
-        titulo="Hook",
-        legenda="🔥 Hook\n\nctx\n\ncorpo\n\n👇 CTA",
-        hashtags=["#a", "#b", "#c"],
-        slides=["s1", "s2", "s3"],
+        pilar=1, titulo="Título", legenda="Legenda do post", hashtags=["#ia"], slides=["S1"]
     )
 
 
-def test_escreve_nota_no_formato_do_publicador():
-    vault = FakeVault({})
-    e = EscritorFila(vault=vault)
-    quando = datetime(2026, 5, 26, 9, 0)
-    e.escrever(_post(), post_id="2026-05-26-01", png_bytes=b"PNGFAKE", agendar_para=quando)
-
-    nota_path = "C04 Claude Obsidian/Stella-publicacao/fila/2026-05-26-01.md"
-    assert vault.note_exists(nota_path)
-
-    nota = vault.read_note(nota_path)
-    fm = nota.frontmatter
-    assert fm["marca"] == "mktmagneto"
-    assert fm["plataformas"] == ["instagram"]
-    assert fm["tipo-post"] == "feed"
-    assert fm["status"] == "rascunho"
-    assert fm["imagem"] == "2026-05-26-01.png"
-    assert fm["agendar-para"] == "2026-05-26 09:00"  # string formatada
-
-
-def test_corpo_contem_legenda_e_hashtags():
-    vault = FakeVault({})
-    e = EscritorFila(vault=vault)
-    e.escrever(
-        _post(), post_id="2026-05-26-01", png_bytes=b"PNG", agendar_para=datetime(2026, 5, 26, 9, 0)
-    )
-
-    nota = vault.read_note("C04 Claude Obsidian/Stella-publicacao/fila/2026-05-26-01.md")
-    assert "🔥 Hook" in nota.content
-    assert "#a" in nota.content
-    assert "#c" in nota.content
-
-
-def test_png_anexado_como_binario():
-    vault = FakeVault({})
-    e = EscritorFila(vault=vault)
-    e.escrever(
+def test_escrever_cria_nota_com_status_pending_render() -> None:
+    vault = FakeVault()
+    escritor = EscritorFila(vault=vault)
+    path = escritor.escrever(
         _post(),
-        post_id="2026-05-26-01",
-        png_bytes=b"PNGFAKE",
-        agendar_para=datetime(2026, 5, 26, 9, 0),
+        post_id="2026-05-25-01",
+        design_spec_path="C04 Claude Obsidian/Stella-publicacao/pendentes/spec.json",
+        agendar_para=datetime(2026, 5, 27, 9, 0, tzinfo=_BRT),
     )
-
-    png_path = "C04 Claude Obsidian/Stella-publicacao/fila/2026-05-26-01.png"
-    assert vault.read_binary(png_path) == b"PNGFAKE"
-
-
-def test_retorno_eh_o_path_da_nota():
-    vault = FakeVault({})
-    e = EscritorFila(vault=vault)
-    path = e.escrever(
-        _post(), post_id="X", png_bytes=b"P", agendar_para=datetime(2026, 5, 26, 9, 0)
+    nota = vault.read_note(path)
+    assert nota.frontmatter["status"] == "pending_render"
+    assert (
+        nota.frontmatter["design_spec"]
+        == "C04 Claude Obsidian/Stella-publicacao/pendentes/spec.json"
     )
-    assert path == "C04 Claude Obsidian/Stella-publicacao/fila/X.md"
+    assert nota.frontmatter["imagens"] == []
+    assert "Legenda do post" in nota.content
+
+
+def test_escrever_nao_grava_png() -> None:
+    vault = FakeVault()
+    escritor = EscritorFila(vault=vault)
+    escritor.escrever(
+        _post(),
+        post_id="2026-05-25-01",
+        design_spec_path="spec.json",
+        agendar_para=datetime(2026, 5, 27, 9, 0, tzinfo=_BRT),
+    )
+    assert len(vault._binarios) == 0
+
+
+def test_escrever_com_qa_warning_marca_needs_review() -> None:
+    vault = FakeVault()
+    vault.write_binary(
+        "spec.json",
+        DesignSpec(formato="carrossel", dimensoes=[1080, 1350]).to_json().encode("utf-8"),
+    )
+    escritor = EscritorFila(vault=vault)
+    path = escritor.escrever(
+        _post(),
+        post_id="2026-05-25-01",
+        design_spec_path="spec.json",
+        agendar_para=datetime(2026, 5, 27, 9, 0, tzinfo=_BRT),
+        status="needs_review",
+        qa_warnings=["copy QA aviso: hook fraco"],
+    )
+    nota = vault.read_note(path)
+    assert nota.frontmatter["status"] == "needs_review"
+    assert nota.frontmatter["qa_warnings"] == ["copy QA aviso: hook fraco"]
+    spec = DesignSpec.from_json(vault.read_binary("spec.json").decode("utf-8"))
+    assert spec.status == "needs_review"

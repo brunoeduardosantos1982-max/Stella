@@ -1,7 +1,7 @@
 nome: designer
 tipo: especialista
 setor: marketing
-descricao: "Produz o visual (PNG) de um post a partir da copy e do knowledge_pack da marca. Escolhe template, preenche e renderiza para 1080x1350."
+descricao: "Gera DesignSpec JSON com decisoes de template/foto por slide. Fase 2 (Paper MCP) produz os PNGs a partir do spec."
 execucao: in_process
 modelo_minimo: sonnet
 
@@ -11,7 +11,7 @@ inputs_obrigatorios:
   - copy
 
 exemplo_uso: {}
-quando_usar: "criar o visual/criativo de um post Instagram a partir de copy já aprovada"
+quando_usar: "gerar o pacote de design (spec JSON) de um post. Formatos: post-unico, carrossel, stories, video (clarificacao interativa), landing-page."
 
 capacidades_externas:
   skills:
@@ -25,6 +25,8 @@ capacidades_externas:
 
 vault_scope:
   - "C04 Claude Obsidian/outputs/mktmagneto-ia/**"
-  - "C04 Claude Obsidian/outputs/marketing-team/designer/**"
+  - "C04 Claude Obsidian/Stella-publicacao/pendentes/**"
+  - "A03 Banco de Imagens/referencias para criativos/**"
+  - "A03 Banco de Imagens/FotosBruno/**"
 
 especialistas: []
