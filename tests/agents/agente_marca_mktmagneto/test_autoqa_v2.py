@@ -110,3 +110,12 @@ def test_feedback_visual_aprovado_retorna_string_vazia() -> None:
     qa = AutoQA(llm=FakeLLM(responses=["veredicto: aprovado\nmotivo: ok"]))
     qa.aprova_visual(copy=_COPY, designer_resultado=_DESIGNER_OUT)
     assert qa.feedback_visual(copy=_COPY, designer_resultado=_DESIGNER_OUT) == ""
+
+
+def test_prompt_copy_inclui_referencia_quando_presente():
+    qa = AutoQA(llm=FakeLLM())
+    prompt = qa._montar_prompt_copy(
+        copy={"legenda": "L", "hashtags": []},
+        knowledge_pack={"briefing": "B", "referencia": "PRINCIPIO: prova concreta"},
+    )
+    assert "prova concreta" in prompt

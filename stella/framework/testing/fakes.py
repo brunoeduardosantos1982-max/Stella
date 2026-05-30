@@ -177,6 +177,26 @@ class FakeRAG(RAGClient):
         return list(self.docs[:k])
 
 
+@dataclass
+class FakeNotebookLMRAG(RAGClient):
+    """RAG fake estilo NotebookLM: auth_check controlavel + docs pre-definidos.
+
+    `autenticado=False` simula sessao caida (gate de auth do agente deve parar).
+    Registra as queries recebidas em `queries` para asserts.
+    """
+
+    autenticado: bool = True
+    docs: list[dict[str, Any]] = field(default_factory=list)
+    queries: list[str] = field(default_factory=list)
+
+    def auth_check(self) -> bool:
+        return self.autenticado
+
+    def search(self, query: str, k: int = 5) -> list[dict[str, Any]]:
+        self.queries.append(query)
+        return list(self.docs[:k])
+
+
 class FakeTracker:
     """UsageTracker fake — registra UsageRecords.
 

@@ -111,6 +111,9 @@ class AutoQA:
             contexto = f"BRIEFING DA MARCA:\n{briefing}\n\n"
         else:
             contexto = f"VOZ ESPERADA: {voz}\nCTA PADRÃO: {cta}\n\n"
+        referencia = knowledge_pack.get("referencia", "")
+        if referencia:
+            contexto += f"REFERENCIA (principios/exemplos curados):\n{referencia}\n\n"
         return (
             "Aplique a skill `revisao-padroes-marca`.\n\n" + contexto + f"LEGENDA:\n{legenda}\n\n"
             f"HASHTAGS ({len(hashtags)}): {hashtags}\n\n"

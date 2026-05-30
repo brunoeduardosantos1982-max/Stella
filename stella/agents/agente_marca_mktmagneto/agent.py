@@ -72,6 +72,17 @@ class Agent(BaseAgent):
                 mensagens=["Vault, LLM ou registry não injetado — não posso rodar."],
             )
 
+        # 0. Gate de auth do NotebookLM - referencia e grounding obrigatorio.
+        if self._rag is not None and hasattr(self._rag, "auth_check"):
+            if not self._rag.auth_check():
+                return AgentOutput(
+                    resultado={},
+                    sucesso=False,
+                    mensagens=[
+                        "Senhor, NotebookLM deslogou. Rode `notebooklm login` e me chame de novo."
+                    ],
+                )
+
         # 1. Conhecimento da marca
         try:
             knowledge = CarregadorMarca(vault=self._vault).carregar()
@@ -112,9 +123,16 @@ class Agent(BaseAgent):
                 "n_slides": 3,
             }
 
+            # Grounding obrigatorio por pauta: consulta o notebook de referencia.
+            referencia_txt = ""
+            if self._rag is not None:
+                docs = self._rag.search(pauta.titulo)
+                referencia_txt = "\n\n".join(str(d.get("texto", "")) for d in docs)
+            knowledge_pauta = {**knowledge, "referencia": referencia_txt}
+
             # Copy — tentativa 1
             copy_out = self.delegate_to(
-                "copywriter", {"knowledge_pack": knowledge, "pauta": pauta_dict}
+                "copywriter", {"knowledge_pack": knowledge_pauta, "pauta": pauta_dict}
             )
             if not copy_out.sucesso:
                 erros.append(f"Post {i + 1}: copywriter falhou — {copy_out.mensagens}")
@@ -122,27 +140,27 @@ class Agent(BaseAgent):
             copy = copy_out.resultado
 
             # QA copy — retry com feedback se reprovado
-            if not autoqa.aprova_copy(copy=copy, knowledge_pack=knowledge):
-                feedback_c = autoqa.feedback_copy(copy=copy, knowledge_pack=knowledge)
+            if not autoqa.aprova_copy(copy=copy, knowledge_pack=knowledge_pauta):
+                feedback_c = autoqa.feedback_copy(copy=copy, knowledge_pack=knowledge_pauta)
                 copy_out2 = self.delegate_to(
                     "copywriter",
                     {
-                        "knowledge_pack": knowledge,
+                        "knowledge_pack": knowledge_pauta,
                         "pauta": pauta_dict,
                         "feedback_anterior": feedback_c,
                         "output_anterior": copy,
                     },
                 )
                 copy = copy_out2.resultado if copy_out2.sucesso else copy
-                if not autoqa.aprova_copy(copy=copy, knowledge_pack=knowledge):
-                    aviso = autoqa.feedback_copy(copy=copy, knowledge_pack=knowledge)
+                if not autoqa.aprova_copy(copy=copy, knowledge_pack=knowledge_pauta):
+                    aviso = autoqa.feedback_copy(copy=copy, knowledge_pack=knowledge_pauta)
                     msg = f"Post {i + 1} copy QA aviso: {aviso}"
                     erros.append(msg)
                     post_warnings.append(msg)
 
             # Design
             design_out = self.delegate_to(
-                "designer", {"knowledge_pack": knowledge, "pauta": pauta_dict, "copy": copy}
+                "designer", {"knowledge_pack": knowledge_pauta, "pauta": pauta_dict, "copy": copy}
             )
             if not design_out.sucesso:
                 erros.append(f"Post {i + 1}: designer falhou — {design_out.mensagens}")

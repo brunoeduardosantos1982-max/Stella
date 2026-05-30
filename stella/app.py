@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.gemma_nvidia import GemmaNvidiaProvider
 from stella.adapters.llm.router import LLMRouter
+from stella.adapters.rag.notebooklm_client import NotebookLMRAGClient
 from stella.adapters.research.perplexity_client import PerplexityClient
 from stella.adapters.research.tavily_client import TavilyClient
 from stella.adapters.vault.obsidian_vault import ObsidianVaultRepository
@@ -127,6 +128,21 @@ def build_stella(config: StellaConfig) -> Stella:
             )
         )
     rag_reg = RAGRegistry()
+    # NotebookLM: referencia RAG (grounding obrigatorio do agente de marca).
+    # Sempre registrado para o manifesto `rag: notebooklm` resolver no build_agent.
+    rag_reg.register(
+        "notebooklm",
+        NotebookLMRAGClient(
+            notebook_id=config.notebooklm_notebook_id,
+            bin=config.notebooklm_bin,
+            timeout_s=config.notebooklm_timeout_s,
+        ),
+    )
+    if not config.notebooklm_notebook_id:
+        _logger.warning(
+            "NotebookLM: STELLA_NOTEBOOKLM_NOTEBOOK_ID vazio - o agente de marca "
+            "vai falhar no gate de auth/consulta ate configurar o notebook."
+        )
     registry = AgentRegistry(config.agents_dir)
 
     framework_deps = FrameworkDeps(

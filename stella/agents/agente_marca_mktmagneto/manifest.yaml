@@ -18,7 +18,7 @@ capacidades_externas:
     - tavily
   optional_mcps:
     - perplexity
-  rag: null
+  rag: notebooklm
 
 vault_scope:
   - "C04 Claude Obsidian/projetos e specs/mktmagneto.ia/**"
