@@ -13,6 +13,7 @@ def test_capacidades_externas_padrao_vazio() -> None:
     c = CapacidadesExternas()
     assert c.skills == []
     assert c.mcps == []
+    assert c.optional_mcps == []
     assert c.rag is None
 
 
@@ -20,10 +21,12 @@ def test_capacidades_externas_com_listas() -> None:
     c = CapacidadesExternas(
         skills=["marketing-copy-pt-br", "ab-testing"],
         mcps=["brave-search"],
+        optional_mcps=["perplexity"],
         rag="corpus-copies-anteriores",
     )
     assert "marketing-copy-pt-br" in c.skills
     assert "brave-search" in c.mcps
+    assert "perplexity" in c.optional_mcps
     assert c.rag == "corpus-copies-anteriores"
 
 
@@ -248,6 +251,16 @@ def test_validate_manifest_resources_mcp_faltando_devolve_msg(tmp_path: Path) ->
     assert len(erros) == 1
     assert "mcp-x" in erros[0]
     assert "mcp" in erros[0].lower()
+
+
+def test_validate_manifest_resources_optional_mcp_faltando_nao_devolve_msg(
+    tmp_path: Path,
+) -> None:
+    from stella.framework.manifest import validate_manifest_resources
+
+    deps = _deps_minimas(tmp_path)
+    m = _manifest_com_caps(optional_mcps=["perplexity"])
+    assert validate_manifest_resources(m, deps) == []
 
 
 def test_validate_manifest_resources_rag_faltando_devolve_msg(tmp_path: Path) -> None:

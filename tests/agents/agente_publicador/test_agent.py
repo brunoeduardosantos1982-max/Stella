@@ -84,6 +84,28 @@ def test_execute_publica_post_com_imagem() -> None:
     assert len(postiz.agendamentos[0].midias) == 1
 
 
+def test_execute_publica_post_com_lista_de_imagens() -> None:
+    vault = _vault({f"{_FILA}/post1.md": _post(imagens=["slide-00.png", "slide-01.png"])})
+    vault.write_binary(f"{_FILA}/slide-00.png", b"PNG0")
+    vault.write_binary(f"{_FILA}/slide-01.png", b"PNG1")
+    postiz = FakePostiz()
+    Agent(vault=vault, postiz_client=postiz).execute({"modo": "semi-auto"})
+
+    assert postiz.uploads == [("slide-00.png", b"PNG0"), ("slide-01.png", b"PNG1")]
+    assert len(postiz.agendamentos[0].midias) == 2
+
+
+def test_execute_publica_post_com_imagem_em_subpasta() -> None:
+    caminho = "post1/slide-00.png"
+    vault = _vault({f"{_FILA}/post1.md": _post(imagens=[caminho])})
+    vault.write_binary(f"{_FILA}/{caminho}", b"PNG0")
+    postiz = FakePostiz()
+    Agent(vault=vault, postiz_client=postiz).execute({"modo": "semi-auto"})
+
+    assert postiz.uploads == [("slide-00.png", b"PNG0")]
+    assert len(postiz.agendamentos[0].midias) == 1
+
+
 def test_execute_semi_auto_ignora_rascunho() -> None:
     vault = _vault({f"{_FILA}/post1.md": _post(status="rascunho")})
     postiz = FakePostiz()

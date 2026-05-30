@@ -104,3 +104,22 @@ def test_build_stella_descobre_agente_publicador(monkeypatch, vault_tmp) -> None
     assert "agente_publicador" in stella.registry.list_nomes()
     cliente = stella.registry.get("agente_publicador")
     assert isinstance(cliente, InProcessClient)
+
+
+def test_build_stella_sem_perplexity_nao_avisa_mcps_opcionais(
+    monkeypatch, vault_tmp, caplog
+) -> None:
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_TAVILY_API_KEY", "fake-tavily")
+    monkeypatch.delenv("STELLA_PERPLEXITY_API_KEY", raising=False)
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(vault_tmp))
+
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="stella.framework"):
+        build_stella(StellaConfig())
+
+    assert "perplexity" not in caplog.text
+    assert "paper" not in caplog.text
+    assert "higgsfield" not in caplog.text

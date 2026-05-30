@@ -6,7 +6,7 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from typing import Literal
 
-DesignStatus = Literal["pending_render", "rendering", "rendered", "error"]
+DesignStatus = Literal["pending_render", "needs_review", "rendering", "rendered", "error"]
 DesignFormato = Literal["post-unico", "carrossel", "stories", "video", "landing-page"]
 
 

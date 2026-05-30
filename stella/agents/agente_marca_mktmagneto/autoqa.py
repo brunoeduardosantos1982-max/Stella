@@ -122,15 +122,19 @@ class AutoQA:
     def _montar_prompt_visual(
         self, copy: dict[str, Any], designer_resultado: dict[str, Any]
     ) -> str:
-        template = designer_resultado.get("template_escolhido", "")
-        rationale = designer_resultado.get("rationale", "")
-        slides_count = designer_resultado.get("slides_renderizados", 0)
+        formato = designer_resultado.get("formato", "")
+        template_capa = designer_resultado.get("template_capa") or designer_resultado.get(
+            "template_escolhido", ""
+        )
+        slides_planejados = designer_resultado.get("slides_planejados") or designer_resultado.get(
+            "slides_renderizados", 0
+        )
         legenda_preview = str(copy.get("legenda", ""))[:120]
         return (
             "Aplique as skills `composicao-visual-social-2026` e `hierarquia-informacional-feed`.\n\n"
-            f"TEMPLATE ESCOLHIDO: {template}\n"
-            f"RATIONALE DO DESIGNER: {rationale}\n"
-            f"SLIDES RENDERIZADOS: {slides_count}\n"
+            f"FORMATO: {formato}\n"
+            f"TEMPLATE DA CAPA: {template_capa}\n"
+            f"SLIDES PLANEJADOS: {slides_planejados}\n"
             f"LEGENDA (preview): {legenda_preview}\n\n"
             "Avalie se as escolhas de design são adequadas para o conteúdo.\n\n"
             "Devolva APENAS YAML:\n"

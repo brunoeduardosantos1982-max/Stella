@@ -41,6 +41,7 @@ def _manifest(
     nome: str,
     skills: list[str] | None = None,
     mcps: list[str] | None = None,
+    optional_mcps: list[str] | None = None,
 ) -> AgentManifest:
     return AgentManifest(
         nome=nome,
@@ -55,6 +56,7 @@ def _manifest(
         capacidades_externas=CapacidadesExternas(
             skills=skills or [],
             mcps=mcps or [],
+            optional_mcps=optional_mcps or [],
             rag=None,
         ),
     )
@@ -142,6 +144,31 @@ def test_build_agent_mcp_nao_registrada_e_ignorada_com_warning(
         agent = build_agent(m, deps)
     assert agent._mcps == []
     assert "sem-mcp" in caplog.text
+
+
+def test_build_agent_optional_mcp_registrada_e_injetada(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _instalar_agente_no_modulo(monkeypatch, "agente_x")
+    deps = _deps_para_teste(tmp_path)
+    deps.mcp_reg.register(ConexaoMCP(nome="perplexity", tipo="http", endpoint="http://x"))
+    m = _manifest("agente_x", optional_mcps=["perplexity"])
+    agent = build_agent(m, deps)
+    assert [mcp.nome for mcp in agent._mcps] == ["perplexity"]
+
+
+def test_build_agent_optional_mcp_ausente_nao_gera_warning(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    _instalar_agente_no_modulo(monkeypatch, "agente_x")
+    deps = _deps_para_teste(tmp_path)
+    m = _manifest("agente_x", optional_mcps=["perplexity"])
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="stella.framework.builder"):
+        agent = build_agent(m, deps)
+    assert agent._mcps == []
+    assert "perplexity" not in caplog.text
 
 
 def test_build_agent_modulo_inexistente_levanta_import_error(

@@ -7,6 +7,8 @@ from datetime import datetime
 from typing import Any
 
 from stella.adapters.vault.base import VaultRepository
+from stella.agents.designer.spec import DesignSpec
+
 from .redator import PostTexto
 
 _FILA_DIR = "C04 Claude Obsidian/Stella-publicacao/fila"
@@ -25,6 +27,8 @@ class EscritorFila:
         post_id: str,
         design_spec_path: str,
         agendar_para: datetime,
+        status: str = "pending_render",
+        qa_warnings: list[str] | None = None,
     ) -> str:
         """Retorna o path da nota .md escrita."""
         md_path = f"{_FILA_DIR}/{post_id}.md"
@@ -34,11 +38,23 @@ class EscritorFila:
             "plataformas": ["instagram"],
             "tipo-post": "feed",
             "agendar-para": agendar_para.strftime("%Y-%m-%d %H:%M"),
-            "status": "pending_render",
+            "status": status,
             "design_spec": design_spec_path,
             "imagens": [],
         }
+        if qa_warnings:
+            frontmatter["qa_warnings"] = qa_warnings
+        if status == "needs_review":
+            self._marcar_spec_needs_review(design_spec_path)
 
         corpo = post.legenda + "\n\n" + " ".join(post.hashtags)
         self.vault.write_note(md_path, corpo, frontmatter)
         return md_path
+
+    def _marcar_spec_needs_review(self, design_spec_path: str) -> None:
+        try:
+            spec = DesignSpec.from_json(self.vault.read_binary(design_spec_path).decode("utf-8"))
+        except (FileNotFoundError, ValueError, TypeError):
+            return
+        spec.status = "needs_review"
+        self.vault.write_binary(design_spec_path, spec.to_json().encode("utf-8"))

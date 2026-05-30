@@ -36,6 +36,7 @@ class CapacidadesExternas(BaseModel):
 
     skills: list[str] = Field(default_factory=list)
     mcps: list[str] = Field(default_factory=list)
+    optional_mcps: list[str] = Field(default_factory=list)
     rag: str | None = None
 
 

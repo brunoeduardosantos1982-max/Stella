@@ -23,7 +23,7 @@ def test_manifest_basico_correto():
     assert manifest.setor == "marketing-marca"
     assert manifest.execucao == "in_process"
     assert "tavily" in manifest.capacidades_externas.mcps
-    assert "perplexity" in manifest.capacidades_externas.mcps
+    assert "perplexity" in manifest.capacidades_externas.optional_mcps
     # especialistas delgados
     assert "copywriter" in manifest.especialistas
     assert "designer" in manifest.especialistas

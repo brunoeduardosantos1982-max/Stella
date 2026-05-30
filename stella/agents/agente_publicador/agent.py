@@ -38,6 +38,27 @@ _STATUS_PUBLICAVEL: dict[str, set[str]] = {
 }
 
 
+def _caminho_midia(nome: str) -> str:
+    """Resolve midia relativa a fila, preservando caminhos de vault completos."""
+    if nome.startswith(_PASTA_BASE + "/"):
+        return nome
+    return f"{_PASTA_FILA}/{nome}"
+
+
+def _nomes_midias(fm: dict[str, Any]) -> list[str]:
+    """Aceita frontmatter novo (`imagens`) e legado (`imagem`)."""
+    imagens = fm.get("imagens")
+    if isinstance(imagens, list):
+        return [str(i) for i in imagens if str(i).strip()]
+    if isinstance(imagens, str) and imagens.strip():
+        return [imagens.strip()]
+
+    imagem = fm.get("imagem")
+    if isinstance(imagem, str) and imagem.strip():
+        return [imagem.strip()]
+    return []
+
+
 def _para_utc_iso(valor: object) -> str:
     """Converte 'agendar-para' (horário de Brasília) para ISO 8601 UTC.
 
@@ -206,10 +227,9 @@ class Agent(BaseAgent):
             raise ValueError("post sem conteúdo (corpo da nota vazio)")
 
         midias: list[PostizMidia] = []
-        imagem = fm.get("imagem")
-        if imagem:
-            dados = vault.read_binary(f"{_PASTA_FILA}/{imagem}")
-            midias.append(postiz.upload_imagem(dados, str(imagem)))
+        for nome_midia in _nomes_midias(fm):
+            dados = vault.read_binary(_caminho_midia(nome_midia))
+            midias.append(postiz.upload_imagem(dados, nome_midia.rsplit("/", 1)[-1]))
 
         # Postiz exige settings.post_type ∈ {"post", "story"}. Mapeamos a partir
         # do `tipo-post` do frontmatter (estatico/carrossel → post; story → story).

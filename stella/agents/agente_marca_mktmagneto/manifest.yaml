@@ -16,6 +16,7 @@ capacidades_externas:
     - revisao-padroes-marca
   mcps:
     - tavily
+  optional_mcps:
     - perplexity
   rag: null
 

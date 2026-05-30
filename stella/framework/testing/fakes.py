@@ -270,10 +270,10 @@ class FakeDesigner(AgentClient):
             resultado = self._outputs.pop(0)
         else:
             resultado = {
-                "png_bytes": b"PNGFAKE-designer",
-                "template_escolhido": "capa-carrossel",
-                "rationale": "template padrão FakeDesigner",
-                "slides_renderizados": 1,
+                "design_spec_path": "C04 Claude Obsidian/Stella-publicacao/pendentes/fake-spec.json",
+                "formato": "carrossel",
+                "template_capa": "capa-carrossel",
+                "slides_planejados": 3,
             }
         return AgentOutput(resultado=resultado)
 

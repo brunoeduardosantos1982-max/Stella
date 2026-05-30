@@ -122,16 +122,18 @@ def test_pipeline_gera_3_rascunhos_na_fila() -> None:
     assert len(fila) == 3
 
 
-def test_pipeline_grava_pngs_no_vault() -> None:
+def test_pipeline_grava_design_spec_no_frontmatter() -> None:
     llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
     vault = _vault_pronto()
     agent = _agent(llm, vault=vault)
     agent.execute({})
 
-    pngs = [p for p in vault._binarios if p.endswith(".png")]
-    assert len(pngs) == 3
-    for data in vault._binarios.values():
-        assert data.startswith(b"PNGFAKE")
+    fila = [p for p in vault._store if "Stella-publicacao/fila/" in p and p.endswith(".md")]
+    assert len(fila) == 3
+    for path in fila:
+        nota = vault.read_note(path)
+        assert "design_spec" in nota.frontmatter
+        assert nota.frontmatter["design_spec"] != ""
 
 
 def test_pipeline_atualiza_calendario() -> None:
@@ -156,7 +158,7 @@ def test_nota_da_fila_tem_frontmatter_correto() -> None:
     for path in fila:
         nota = vault.read_note(path)
         assert nota.frontmatter["marca"] == "mktmagneto"
-        assert nota.frontmatter["status"] == "rascunho"
+        assert nota.frontmatter["status"] == "pending_render"
         assert nota.frontmatter["plataformas"] == ["instagram"]
 
 
@@ -205,10 +207,10 @@ def test_designer_falha_num_post_nao_derruba_os_outros() -> None:
                 return AgentOutput(resultado={}, sucesso=False, mensagens=["designer crashed"])
             return AgentOutput(
                 resultado={
-                    "png_bytes": b"PNGFAKE-ok",
-                    "template_escolhido": "capa-carrossel",
-                    "rationale": "ok",
-                    "slides_renderizados": 3,
+                    "design_spec_path": "C04 Claude Obsidian/Stella-publicacao/pendentes/fake-spec.json",
+                    "formato": "carrossel",
+                    "template_capa": "capa-carrossel",
+                    "slides_planejados": 3,
                 }
             )
 
