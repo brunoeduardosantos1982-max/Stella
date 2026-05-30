@@ -72,6 +72,17 @@ class Agent(BaseAgent):
                 mensagens=["Vault, LLM ou registry não injetado — não posso rodar."],
             )
 
+        # 0. Gate de auth do NotebookLM - referencia e grounding obrigatorio.
+        if self._rag is not None and hasattr(self._rag, "auth_check"):
+            if not self._rag.auth_check():
+                return AgentOutput(
+                    resultado={},
+                    sucesso=False,
+                    mensagens=[
+                        "Senhor, NotebookLM deslogou. Rode `notebooklm login` e me chame de novo."
+                    ],
+                )
+
         # 1. Conhecimento da marca
         try:
             knowledge = CarregadorMarca(vault=self._vault).carregar()
