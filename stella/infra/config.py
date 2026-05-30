@@ -51,3 +51,8 @@ class StellaConfig(BaseSettings):
     # Designer MCP Híbrido: Higgsfield Soul ID
     higgsfield_token: SecretStr = Field(default=SecretStr(""))
     higgsfield_soul_id: str = Field(default="")
+
+    # NotebookLM: referencia RAG via CLI local (sem API key, usa storage_state.json)
+    notebooklm_notebook_id: str = Field(default="")
+    notebooklm_bin: str = Field(default="notebooklm")
+    notebooklm_timeout_s: int = Field(default=60, gt=0)

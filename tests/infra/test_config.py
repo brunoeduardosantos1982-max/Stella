@@ -165,3 +165,29 @@ def test_config_publicacao_modo_invalido_levanta_erro(monkeypatch, tmp_path):
 
     with pytest.raises(ValidationError):
         StellaConfig()
+
+
+def test_config_notebooklm_defaults(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+
+    cfg = StellaConfig()
+
+    assert cfg.notebooklm_notebook_id == ""
+    assert cfg.notebooklm_bin == "notebooklm"
+    assert cfg.notebooklm_timeout_s == 60
+
+
+def test_config_notebooklm_override(monkeypatch, tmp_path):
+    monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
+    monkeypatch.setenv("STELLA_VAULT_PATH", str(tmp_path))
+    monkeypatch.setenv("STELLA_NOTEBOOKLM_NOTEBOOK_ID", "nb_abc123")
+    monkeypatch.setenv("STELLA_NOTEBOOKLM_TIMEOUT_S", "90")
+
+    cfg = StellaConfig()
+
+    assert cfg.notebooklm_notebook_id == "nb_abc123"
+    assert cfg.notebooklm_timeout_s == 90
