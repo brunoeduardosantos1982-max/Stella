@@ -7,6 +7,7 @@ import stella as _pkg
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.llm.router import LLMRouter
 from stella.agents.agente_marca_mktmagneto.agent import Agent as Coordenador
+from stella.agents.agente_marca_mktmagneto.carregador_marca import _DOCS_DA_MARCA
 from stella.framework.manifest import load_manifest
 from stella.framework.testing.fakes import (
     FakeCopywriter,
@@ -39,9 +40,9 @@ class _FakeRouter:
 def _vault() -> FakeVault:
     return FakeVault(
         {
-            f"{_BASE}mktmagneto.ia - 01 Spec.md": ("# Spec", {}),
-            f"{_BASE}mktmagneto.ia - 03 Briefing do Agente de Conteudo.md": ("briefing", {}),
-            f"{_BASE}mktmagneto.ia - 04 Kit de Identidade Visual.md": ("kit", {}),
+            _DOCS_DA_MARCA["spec"]: ("# Spec", {}),
+            _DOCS_DA_MARCA["briefing"]: ("briefing", {}),
+            _DOCS_DA_MARCA["kit"]: ("kit", {}),
         }
     )
 
@@ -69,3 +70,37 @@ def test_auth_caido_para_e_nao_produz(monkeypatch):
     # nenhuma nota escrita na fila
     fila = [p for p in vault._store if "Stella-publicacao/fila/" in p]
     assert fila == []
+
+
+def test_grounding_injetado_no_payload_do_copywriter(monkeypatch):
+    vault = _vault()
+    rag = FakeNotebookLMRAG(
+        autenticado=True,
+        docs=[{"texto": "Use prova concreta no gancho.", "citacoes": []}],
+    )
+    registry = FakeRegistry({"copywriter": FakeCopywriter(), "designer": FakeDesigner()})
+    # plan com 1 pauta + QA aprovado (copy + visual)
+    coord_llm = FakeLLM(
+        responses=[
+            'pautas:\n  - {pilar: 1, titulo: "do chat a construcao"}\n',
+            "veredicto: aprovado\nmotivo: ok",
+            "veredicto: aprovado\nmotivo: ok",
+        ]
+    )
+    coord = Coordenador(
+        vault=vault,
+        llm=cast(LLMRouter, _FakeRouter(coord_llm)),
+        mcps=[],
+        rag=rag,
+        registry=registry,
+    )
+
+    coord.execute({})
+
+    # a query de grounding usou o titulo da pauta
+    assert any("do chat a construcao" in q for q in rag.queries)
+    # o copywriter recebeu o knowledge_pack com a chave 'referencia' preenchida
+    copyw = cast(FakeCopywriter, registry.get("copywriter"))
+    assert copyw.payloads, "copywriter deveria ter sido chamado"
+    kp = copyw.payloads[0]["knowledge_pack"]
+    assert "prova concreta" in kp.get("referencia", "")
