@@ -43,9 +43,10 @@ class Planejador:
         pilares_briefing: list[int],
         digest: list[dict[str, Any]],
         calendario_atual: list[dict[str, Any]],
+        briefing: str = "",
     ) -> list[Pauta]:
         titulos_evitar = [c.get("titulo", "") for c in calendario_atual]
-        prompt = self._montar_prompt(pilares_briefing, digest, titulos_evitar)
+        prompt = self._montar_prompt(pilares_briefing, digest, titulos_evitar, briefing)
         resposta = self.llm.complete(prompt).texto
         try:
             dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
@@ -67,14 +68,26 @@ class Planejador:
         pilares: list[int],
         digest: list[dict[str, Any]],
         evitar: list[str],
+        briefing: str,
     ) -> str:
+        bloco_briefing = (
+            "BRIEFING DA MARCA (fonte da verdade — nicho, pilares e voz):\n"
+            f"{briefing.strip()}\n\n"
+            if briefing.strip()
+            else ""
+        )
         return (
             "Você é o Planejador do Agente de Marca @mktmagneto.ia.\n"
             "Aplique a skill `planejamento-editorial`.\n\n"
+            f"{bloco_briefing}"
             "Selecione 3 pautas para a próxima semana, respeitando o mix:\n"
             "  ~50% topo amplo (pilares 1 e 2)\n"
             "  ~25% nicho (pilar 3)\n"
             "  ~25% prova (pilar 4)\n\n"
+            "REGRA DE NICHO (inegociável): TODA pauta deve pertencer ao nicho da marca "
+            "(IA aplicada a marketing e vendas) e a um dos pilares 1, 2 ou 3. "
+            "DESCARTE qualquer tendência do digest que esteja FORA do nicho "
+            "(ex.: decoração, lifestyle, design de interiores) — não vire pauta.\n\n"
             f"Pilares disponíveis (numerados): {pilares}\n"
             f"Tendências detectadas (digest): {digest}\n"
             f"Títulos a EVITAR (já publicado/planejado no calendário): {evitar}\n\n"

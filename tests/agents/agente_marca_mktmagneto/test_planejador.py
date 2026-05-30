@@ -83,3 +83,28 @@ def test_prompt_inclui_mix_e_pilares():
     prompt = llm.calls[0]
     assert "50" in prompt and "25" in prompt
     assert "1" in prompt and "2" in prompt and "3" in prompt and "4" in prompt
+
+
+def test_prompt_ancora_no_briefing_e_descarta_fora_do_nicho():
+    """O prompt deve injetar o briefing da marca (nicho + pilares) e instruir o LLM
+    a descartar tendências do digest fora do nicho. Sem isso, o planner gera pautas
+    fora do nicho (ex.: decoração/Japandi) a partir de um digest contaminado."""
+    yaml_resposta = "pautas: []\n"
+    llm = FakeLLM(responses=[yaml_resposta])
+    p = Planejador(llm=llm)
+    briefing = (
+        "Missão: autoridade brasileira em IA aplicada a marketing e vendas. "
+        "Pilar 1 Despertar; Pilar 2 Ferramentas & Prompts; Pilar 3 Agentes & Automação."
+    )
+    p.planejar(
+        pilares_briefing=[1, 2, 3, 4],
+        digest=[{"titulo": "Tendência Japandi na decoração 2026"}],
+        calendario_atual=[],
+        briefing=briefing,
+    )
+    prompt = llm.calls[0]
+    # briefing injetado (LLM passa a conhecer o nicho e o que cada pilar significa)
+    assert "IA aplicada a marketing e vendas" in prompt
+    # instrução explícita de descartar o que está fora do nicho
+    assert "nicho" in prompt.lower()
+    assert "descart" in prompt.lower() or "ignore" in prompt.lower() or "fora do" in prompt.lower()
