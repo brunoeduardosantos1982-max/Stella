@@ -7,8 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from stella.adapters.vault.base import VaultRepository
-
-from .redator import PostTexto
+from stella.domain.post import PostTexto
 
 _FILA_DIR = "C04 Claude Obsidian/Stella-publicacao/fila"
 

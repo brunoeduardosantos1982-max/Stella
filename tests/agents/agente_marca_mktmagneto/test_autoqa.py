@@ -1,7 +1,7 @@
 """Testes do AutoQA — checklist da marca + ciclo refazer/aceitar_com_aviso."""
 
 from stella.agents.agente_marca_mktmagneto.autoqa import AutoQA
-from stella.agents.agente_marca_mktmagneto.redator import PostTexto
+from stella.domain.post import PostTexto
 from stella.framework.testing.fakes import FakeLLM
 
 
