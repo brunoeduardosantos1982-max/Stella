@@ -16,6 +16,13 @@ tags: [design, informacao, feed]
 3. **HOW** (slides 5-N): Como funciona / como fazer?
 4. **CTA** (último slide): O que fazer agora?
 
+## Comprimento do carrossel
+
+**3 a 5 slides é uma faixa aceitável.** A versão completa do framework usa ~5-6 slides,
+mas carrosséis compactos (3-4) são válidos quando o conteúdo cabe: comprima WHAT na capa,
+funda WHY+HOW em 1-2 slides e mantenha o CTA. Não force slides vazios só para chegar a 5 —
+melhor um carrossel curto e completo do que um longo e diluído.
+
 ## Tipografia hierárquica
 
 - **Nível 1 (Headline):** Inter Bold 48-64pt, cor de acento. Máx 5 palavras.

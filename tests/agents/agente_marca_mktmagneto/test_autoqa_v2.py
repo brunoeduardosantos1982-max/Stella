@@ -119,3 +119,17 @@ def test_prompt_copy_inclui_referencia_quando_presente():
         knowledge_pack={"briefing": "B", "referencia": "PRINCIPIO: prova concreta"},
     )
     assert "prova concreta" in prompt
+
+
+def test_prompt_visual_aceita_carrossel_de_3_a_5_slides():
+    """Regra afrouxada: carrosséis de 3 a 5 slides são aceitáveis. O QA não deve
+    inventar um piso de 5 e reprovar um carrossel de 3 (as skills não são injetadas
+    no prompt — só citadas por nome —, então a faixa precisa ser explícita aqui)."""
+    qa = AutoQA(llm=FakeLLM())
+    prompt = qa._montar_prompt_visual(
+        copy={"legenda": "L"},
+        designer_resultado={"formato": "carrossel", "slides_planejados": 3},
+    )
+    baixa = prompt.lower()
+    assert "3 a 5" in baixa or "entre 3 e 5" in baixa
+    assert "slide" in baixa
