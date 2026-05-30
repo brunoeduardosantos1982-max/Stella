@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class ModeloIA(str, Enum):
+class ModeloIA(StrEnum):
     """Modelos de LLM disponíveis no sistema Stella.
 
     Usado em `Skill.modelo_minimo`, `ConexaoMCP.requer_modelo` e

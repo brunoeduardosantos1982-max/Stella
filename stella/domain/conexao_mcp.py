@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 from stella.domain.enums import ModeloIA
 
 
-class StatusMCP(str, Enum):
+class StatusMCP(StrEnum):
     PRE_CONFIGURADO = "pre-configurado"
     POR_DEMANDA = "por-demanda"
 
