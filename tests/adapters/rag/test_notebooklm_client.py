@@ -64,6 +64,27 @@ def test_search_passa_notebook_e_json_no_comando(monkeypatch):
     assert "--json" in chamadas["cmd"]
 
 
+def test_subprocess_decodifica_utf8_no_windows(monkeypatch):
+    """Regressão: no Windows `text=True` sem `encoding` decodifica com cp1252,
+    a thread de leitura morre em bytes UTF-8 (acentos) e `stdout` vira None →
+    json.loads(None). Ambas as chamadas devem fixar encoding=utf-8."""
+    kwargs: dict[str, Any] = {}
+
+    def _capture(cmd, **k):
+        kwargs.clear()
+        kwargs.update(k)
+        return _Proc(returncode=0, stdout=json.dumps({"answer": "ção"}))
+
+    monkeypatch.setattr(subprocess, "run", _capture)
+    client = NotebookLMRAGClient(notebook_id="nb_1")
+
+    client.search("pergunta com acentuação")
+    assert kwargs.get("encoding") == "utf-8"
+
+    client.auth_check()
+    assert kwargs.get("encoding") == "utf-8"
+
+
 def test_search_levanta_em_exit_nao_zero(monkeypatch):
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Proc(returncode=1, stderr="boom"))
     with pytest.raises(NotebookLMError):
