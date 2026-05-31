@@ -1,10 +1,15 @@
 import sys
+from collections.abc import Callable
 from datetime import datetime
+from typing import cast
 
 import typer
 
 from stella.adapters.higgsfield.base import HiggsFieldClient, HiggsFieldError
 from stella.adapters.higgsfield.client import CliHiggsFieldClient
+from stella.adapters.higgsfield.resolvedor import ResolvedorImagens, _baixar_http
+from stella.adapters.vault.base import VaultRepository
+from stella.agents.designer.spec import DesignSpec
 from stella.app import Stella, build_stella
 from stella.framework.cli.agent_cli import agent_app
 from stella.framework.errors import (
@@ -201,6 +206,60 @@ def gerar_imagem(
         typer.echo(f"Senhor, nao consegui gerar imagem no Higgsfield: {e}", err=True)
         raise typer.Exit(code=1) from e
     typer.echo(url)
+
+
+_FILA_DIR = "C04 Claude Obsidian/Stella-publicacao/fila"
+
+
+def resolver_imagens_para_fila(
+    *,
+    vault: VaultRepository,
+    higgs: HiggsFieldClient,
+    baixar: Callable[[str], bytes] = _baixar_http,
+    post_id: str | None,
+) -> list[str]:
+    """Re-resolve slides foto-higgsfield pendentes na fila. Retorna mensagens."""
+    msgs: list[str] = []
+    for nota_path in vault.list_notes_in_folder(_FILA_DIR):
+        nome = nota_path.rsplit("/", 1)[-1].removesuffix(".md")
+        if post_id is not None and nome != post_id:
+            continue
+        nota = vault.read_note(nota_path)
+        if nota.frontmatter.get("status") != "needs_review":
+            continue
+        spec_path = str(nota.frontmatter.get("design_spec", ""))
+        if not spec_path:
+            continue
+        spec = DesignSpec.from_json(vault.read_binary(spec_path).decode("utf-8"))
+        warnings = ResolvedorImagens(higgs=higgs, vault=vault, baixar=baixar).resolver(
+            spec, post_id=nome
+        )
+        vault.write_binary(spec_path, spec.to_json().encode("utf-8"))
+        imagens = [s.foto for s in spec.slides if s.foto]
+        novo_status = "needs_review" if warnings else "pending_render"
+        vault.update_frontmatter(nota_path, {"status": novo_status, "imagens": imagens})
+        msgs.append(f"{nome}: {novo_status} ({len(imagens)} imagem(ns))")
+    return msgs
+
+
+@app.command("resolver-imagens")
+def resolver_imagens(
+    post_id: str | None = typer.Argument(None, help="post_id específico, ou todos needs_review"),
+) -> None:
+    """Re-tenta gerar as imagens Higgsfield dos posts needs_review na fila."""
+    stella = _build_stella_para_cli()
+    higgs = next(iter(stella.mcp_reg.list_by_category("image")), None)
+    if higgs is None:
+        typer.echo("Senhor, nenhum MCP de imagem registrado (higgsfield).", err=True)
+        raise typer.Exit(code=1)
+    msgs = resolver_imagens_para_fila(
+        vault=stella.vault, higgs=cast(HiggsFieldClient, higgs), post_id=post_id
+    )
+    if not msgs:
+        typer.echo("Nada a resolver (nenhum post needs_review).")
+        return
+    for m in msgs:
+        typer.echo(m)
 
 
 def main() -> None:
