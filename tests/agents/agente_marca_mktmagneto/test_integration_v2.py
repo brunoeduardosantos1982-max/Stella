@@ -14,7 +14,14 @@ from stella.agents.agente_marca_mktmagneto.agent import Agent as Coordenador
 from stella.agents.agente_publicador.agent import Agent as Publicador
 from stella.agents.copywriter.agent import Agent as Copywriter
 from stella.agents.designer.agent import Agent as Designer
-from stella.framework.testing.fakes import FakeLLM, FakeMCP, FakeVault
+from stella.framework.testing.fakes import (
+    FakeCopywriter,
+    FakeDesigner,
+    FakeLLM,
+    FakeMCP,
+    FakeRegistry,
+    FakeVault,
+)
 
 _BRT = timezone(timedelta(hours=-3))
 _AGORA_FIXO = datetime(2026, 5, 26, 12, 0, tzinfo=_BRT)  # terça → próximas datas: qua, sex, seg
@@ -228,6 +235,42 @@ def test_calendario_atualizado_apos_pipeline() -> None:
     cal = vault.read_note(cal_path)
     assert "planejado" in cal.content.lower()
     assert "conversa" in cal.content.lower()  # titulo do pilar 1
+
+
+def test_coordenador_passa_variedade_contexto_acumulando_rotas() -> None:
+    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    designer = FakeDesigner(
+        outputs=[
+            {
+                "design_spec_path": "C04 Claude Obsidian/Stella-publicacao/pendentes/1.json",
+                "rota": "foto-local",
+            },
+            {
+                "design_spec_path": "C04 Claude Obsidian/Stella-publicacao/pendentes/2.json",
+                "rota": "tipografico",
+            },
+            {
+                "design_spec_path": "C04 Claude Obsidian/Stella-publicacao/pendentes/3.json",
+                "rota": "foto-local",
+            },
+        ]
+    )
+    registry = FakeRegistry({"copywriter": FakeCopywriter(), "designer": designer})
+    coord = Coordenador(
+        vault=_vault(),
+        llm=cast(LLMRouter, _FakeRouter(coord_llm)),
+        mcps=[_tavily()],
+        registry=registry,
+    )
+    coord._now = lambda: _AGORA_FIXO  # type: ignore[method-assign]
+
+    out = coord.execute({})
+
+    assert out.sucesso is True
+    assert len(designer.payloads) == 3
+    assert designer.payloads[0]["variedade_contexto"] == []
+    assert "foto-local" in designer.payloads[1]["variedade_contexto"]
+    assert designer.payloads[2]["variedade_contexto"] == ["foto-local", "tipografico"]
 
 
 def test_pipeline_designspec_render_simulado_publicador_publica_carrossel() -> None:
