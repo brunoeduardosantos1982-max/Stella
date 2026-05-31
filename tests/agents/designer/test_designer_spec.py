@@ -53,6 +53,34 @@ def test_spec_landing_page_tem_html() -> None:
     assert rec.slides == []
 
 
+def test_slidespec_referencias_usadas_default_vazio() -> None:
+    s = SlideSpec(index=0, template="capa-carrossel", conteudo={})
+    assert s.referencias_usadas == []
+
+
+def test_designspec_roundtrip_preserva_referencias_usadas() -> None:
+    s = SlideSpec(
+        index=0,
+        template="capa-foto-split",
+        conteudo={"headline_linha1": "X"},
+        foto="IMG_0520.JPG",
+        referencias_usadas=["ref-a.jpeg"],
+    )
+    spec = DesignSpec(formato="carrossel", dimensoes=[1080, 1350], slides=[s])
+    restaurado = DesignSpec.from_json(spec.to_json())
+    assert restaurado.slides[0].referencias_usadas == ["ref-a.jpeg"]
+
+
+def test_designspec_from_json_aceita_spec_antigo_sem_referencias() -> None:
+    """Specs gravados antes deste campo nao devem quebrar o parse."""
+    antigo = (
+        '{"formato":"carrossel","dimensoes":[1080,1350],"slides":'
+        '[{"index":0,"template":"capa-carrossel","conteudo":{}}]}'
+    )
+    spec = DesignSpec.from_json(antigo)
+    assert spec.slides[0].referencias_usadas == []
+
+
 _FOTO_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 _KP = {"voz": "direto", "paleta": {"primaria": "#00FFFF"}, "briefing": "Marca tech"}
