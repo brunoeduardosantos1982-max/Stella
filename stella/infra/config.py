@@ -52,6 +52,9 @@ class StellaConfig(BaseSettings):
     higgsfield_token: SecretStr = Field(default=SecretStr(""))
     higgsfield_soul_id: str = Field(default="")
 
+    # Render local (foto-hero): caminho do Chrome/Edge (vazio = auto-detecta)
+    render_browser_path: str = Field(default="")
+
     # NotebookLM: referencia RAG via CLI local (sem API key, usa storage_state.json)
     notebooklm_notebook_id: str = Field(default="")
     notebooklm_bin: str = Field(default="notebooklm")
