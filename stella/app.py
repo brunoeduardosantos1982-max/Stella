@@ -1,6 +1,8 @@
 import logging
 from dataclasses import dataclass
 
+from stella.adapters.higgsfield.client import CliHiggsFieldClient
+from stella.adapters.higgsfield.mcp import HiggsFieldMCP
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.gemma_nvidia import GemmaNvidiaProvider
 from stella.adapters.llm.router import LLMRouter
@@ -103,6 +105,18 @@ def build_stella(config: StellaConfig) -> Stella:
             tipo="rest-api",
             endpoint="https://api.postiz.com/public/v1",
             category="automation",
+        )
+    )
+    # Designer foto-higgsfield: geração de imagem Soul V2 (category=image).
+    # `hf` gerencia a própria auth; aspect 3:4 = mais próximo do 4:5 dos posts.
+    mcp_reg.register(
+        HiggsFieldMCP(
+            nome="higgsfield",
+            tipo="cli",
+            endpoint="cli://hf",
+            category="image",
+            client=CliHiggsFieldClient(aspect_ratio="3:4"),
+            soul_id=config.higgsfield_soul_id or None,
         )
     )
     # AM-M1 Task 4: Tavily Search (primário da cascata de pesquisa)

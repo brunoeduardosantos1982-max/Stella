@@ -18,12 +18,14 @@ capacidades_externas:
     - tavily
   optional_mcps:
     - perplexity
+    - higgsfield
   rag: notebooklm
 
 vault_scope:
   - "C04 Claude Obsidian/projetos e specs/mktmagneto.ia/**"
   - "C04 Claude Obsidian/outputs/mktmagneto-ia/**"
   - "C04 Claude Obsidian/Stella-publicacao/fila/**"
+  - "C04 Claude Obsidian/Stella-publicacao/pendentes/**"
 
 especialistas:
   - copywriter

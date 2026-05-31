@@ -10,6 +10,9 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
+from stella.adapters.higgsfield.base import HiggsFieldClient
+from stella.adapters.higgsfield.resolvedor import ResolvedorImagens
+from stella.agents.designer.spec import DesignSpec
 from stella.domain.post import PostTexto
 from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
@@ -201,8 +204,30 @@ class Agent(BaseAgent):
                 erros.append(msg)
                 post_warnings.append(msg)
 
-            # Gravar na fila
             post_id = datas[i].strftime("%Y-%m-%d") + f"-{i + 1:02d}"
+            design_spec_path = str(designer_resultado.get("design_spec_path", ""))
+
+            # Materializa slides foto-higgsfield (eager). Falha não trava o lote:
+            # vira warning → needs_review (intenção preservada para retry).
+            imagens: list[str] = []
+            higgs_mcp = next(
+                (m for m in self._mcps if getattr(m, "category", None) == "image"), None
+            )
+            if design_spec_path and higgs_mcp is not None:
+                try:
+                    spec = DesignSpec.from_json(
+                        self._vault.read_binary(design_spec_path).decode("utf-8")
+                    )
+                    higgs_warnings = ResolvedorImagens(
+                        higgs=cast(HiggsFieldClient, higgs_mcp), vault=self._vault
+                    ).resolver(spec, post_id=post_id)
+                    self._vault.write_binary(design_spec_path, spec.to_json().encode("utf-8"))
+                    imagens = [s.foto for s in spec.slides if s.foto]
+                    post_warnings.extend(higgs_warnings)
+                except Exception as e:  # noqa: BLE001 — resolução nunca derruba o post
+                    post_warnings.append(f"resolver imagens falhou: {e}")
+
+            # Gravar na fila
             post = PostTexto(
                 pilar=pauta.pilar,
                 titulo=pauta.titulo,
@@ -211,7 +236,6 @@ class Agent(BaseAgent):
                 slides=copy.get("slides", []),
             )
             try:
-                design_spec_path: str = designer_resultado.get("design_spec_path", "")
                 status = "needs_review" if post_warnings else "pending_render"
                 escritor.escrever(
                     post,
@@ -219,6 +243,7 @@ class Agent(BaseAgent):
                     design_spec_path=design_spec_path,
                     agendar_para=datas[i],
                     status=status,
+                    imagens=imagens,
                     qa_warnings=post_warnings,
                 )
                 posts_em_rascunho += 1

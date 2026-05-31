@@ -35,6 +35,22 @@ def test_escrever_cria_nota_com_status_pending_render() -> None:
     assert "Legenda do post" in nota.content
 
 
+def test_escreve_imagens_no_frontmatter() -> None:
+    vault = FakeVault()
+    escritor = EscritorFila(vault=vault)
+    path = escritor.escrever(
+        _post(),
+        post_id="2026-06-01-01",
+        design_spec_path="pendentes/x-spec.json",
+        agendar_para=datetime(2026, 6, 1, 9, 0, tzinfo=_BRT),
+        imagens=["C04 Claude Obsidian/outputs/mktmagneto-ia/imagens/2026-06-01-01/slide0.png"],
+    )
+    nota = vault.read_note(path)
+    assert nota.frontmatter["imagens"] == [
+        "C04 Claude Obsidian/outputs/mktmagneto-ia/imagens/2026-06-01-01/slide0.png"
+    ]
+
+
 def test_escrever_nao_grava_png() -> None:
     vault = FakeVault()
     escritor = EscritorFila(vault=vault)
