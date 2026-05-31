@@ -3,6 +3,8 @@ from datetime import datetime
 
 import typer
 
+from stella.adapters.higgsfield.base import HiggsFieldClient, HiggsFieldError
+from stella.adapters.higgsfield.client import HttpHiggsFieldClient
 from stella.app import Stella, build_stella
 from stella.framework.cli.agent_cli import agent_app
 from stella.framework.errors import (
@@ -81,6 +83,14 @@ app.add_typer(agent_app, name="agent")
 def _build_stella_para_cli() -> Stella:
     cfg = StellaConfig()
     return build_stella(cfg)
+
+
+def _build_higgsfield_client() -> HiggsFieldClient:
+    cfg = StellaConfig()
+    token = cfg.higgsfield_token.get_secret_value()
+    if not token:
+        raise RuntimeError("STELLA_HIGGSFIELD_TOKEN ausente")
+    return HttpHiggsFieldClient(token=token, soul_id=cfg.higgsfield_soul_id or None)
 
 
 @app.command()
@@ -173,6 +183,20 @@ def publicar() -> None:
         typer.echo(linha)
     if not saida.sucesso:
         raise typer.Exit(code=1)
+
+
+@app.command("gerar-imagem")
+def gerar_imagem(
+    prompt: str = typer.Argument(..., help="Prompt visual para o Higgsfield"),
+    soul_id: str | None = typer.Option(None, "--soul-id", help="Soul ID opcional"),
+) -> None:
+    """Gera uma imagem via Higgsfield e imprime a URL retornada."""
+    try:
+        url = _build_higgsfield_client().generate_image(prompt, soul_id=soul_id)
+    except (HiggsFieldError, RuntimeError) as e:
+        typer.echo(f"Senhor, nao consegui gerar imagem no Higgsfield: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(url)
 
 
 def main() -> None:
