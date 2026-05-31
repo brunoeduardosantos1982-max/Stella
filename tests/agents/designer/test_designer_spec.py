@@ -293,6 +293,48 @@ def test_designer_grava_rota_e_referencias_no_resultado(designer_com_indice) -> 
     assert out.resultado["rota"] == "foto-local"
 
 
+def test_designer_aceita_rota_foto_higgsfield_com_soul_id_prompt() -> None:
+    designer, vault = _make_designer(
+        [
+            "rota: foto-higgsfield\n"
+            "template_escolhido: capa-foto-bg\n"
+            "foto_escolhida:\n"
+            "soul_id_prompt: Bruno em estudio, luz lateral cinematografica\n"
+            "referencias_usadas: [ref-a.jpeg]\n"
+            "rationale: precisa de cena gerada\n"
+        ]
+    )
+
+    out = designer.execute({"knowledge_pack": _KP, "pauta": _PAUTA_CARROSSEL, "copy": _COPY})
+
+    spec_json = vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
+    spec = DesignSpec.from_json(spec_json)
+    assert out.resultado["rota"] == "foto-higgsfield"
+    assert spec.slides[0].soul_id_prompt == "Bruno em estudio, luz lateral cinematografica"
+    assert spec.slides[0].foto is None
+
+
+def test_designer_rota_higgsfield_sem_prompt_cai_para_tipografico() -> None:
+    designer, vault = _make_designer(
+        [
+            "rota: foto-higgsfield\n"
+            "template_escolhido: capa-foto-bg\n"
+            "foto_escolhida:\n"
+            "soul_id_prompt: null\n"
+            "referencias_usadas: []\n"
+            "rationale: invalido\n"
+        ]
+    )
+
+    out = designer.execute({"knowledge_pack": _KP, "pauta": _PAUTA_CARROSSEL, "copy": _COPY})
+
+    spec_json = vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
+    spec = DesignSpec.from_json(spec_json)
+    assert out.resultado["rota"] == "tipografico"
+    assert spec.slides[0].template == "capa-carrossel"
+    assert spec.slides[0].soul_id_prompt is None
+
+
 def test_designer_indice_ausente_nao_quebra(designer_com_indice) -> None:
     """Sem indice (vault sem o arquivo), designer cai no comportamento atual."""
     agent, _ = designer_com_indice(

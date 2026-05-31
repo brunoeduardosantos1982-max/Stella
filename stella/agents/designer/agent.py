@@ -150,14 +150,15 @@ class Agent(BaseAgent):
             f"ESTILOS JA USADOS NESTA LEVA: {var_txt}. "
             + diretiva_var
             + "Escolha a ROTA: 'tipografico' (Paper puro), "
-            "'foto-local' (usar uma FotoBruno do brief).\n"
+            "'foto-local' (usar uma FotoBruno do brief), "
+            "'foto-higgsfield' (gerar imagem com Soul ID quando houver soul_id_prompt).\n"
             "Use foto para historias pessoais/credibilidade/resultados; "
             "tipografico para conceitual.\n\n"
             "Devolva APENAS YAML:\n"
-            "rota: <tipografico|foto-local>\n"
+            "rota: <tipografico|foto-local|foto-higgsfield>\n"
             "template_escolhido: <nome-exato>\n"
             "foto_escolhida: <nome-do-arquivo-ou-vazio>\n"
-            "soul_id_prompt: null\n"
+            "soul_id_prompt: <prompt-para-Higgsfield-ou-null>\n"
             "referencias_usadas: [<arquivos-de-referencia-que-inspiraram-ou-vazio>]\n"
             "rationale: <motivo>\n"
         )
@@ -174,13 +175,19 @@ class Agent(BaseAgent):
         if not template or template == "None":
             template = "capa-carrossel"
         foto = str(dados.get("foto_escolhida", "")).strip()
-        if template in _TEMPLATES_COM_FOTO and not fotos:
-            template = "capa-carrossel"
         if foto not in fotos:
             foto = ""
         rota = str(dados.get("rota", "tipografico")).strip() or "tipografico"
-        if rota not in {"tipografico", "foto-local"}:
+        soul_id_prompt = str(dados.get("soul_id_prompt") or "").strip() or None
+        if rota not in {"tipografico", "foto-local", "foto-higgsfield"}:
             rota = "tipografico"
+        if rota == "foto-higgsfield":
+            foto = ""
+            if soul_id_prompt is None:
+                rota = "tipografico"
+                template = "capa-carrossel"
+        elif template in _TEMPLATES_COM_FOTO and not fotos:
+            template = "capa-carrossel"
         refs = dados.get("referencias_usadas") or []
         refs = [str(r) for r in refs] if isinstance(refs, list) else []
 
@@ -189,7 +196,7 @@ class Agent(BaseAgent):
             "template_escolhido": template,
             "foto_escolhida": foto,
             "rationale": str(dados.get("rationale", "")),
-            "soul_id_prompt": dados.get("soul_id_prompt") or None,
+            "soul_id_prompt": soul_id_prompt,
             "referencias_usadas": refs,
         }
 
