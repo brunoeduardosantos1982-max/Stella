@@ -63,11 +63,6 @@ class CliHiggsFieldClient:
         self._run = runner or _default_runner
 
     def generate_image(self, prompt: str, soul_id: str | None = None) -> str:
-        if soul_id:
-            raise HiggsFieldError(
-                "Soul ID personalizado ainda não suportado: treine um ref com "
-                "`hf soul-id create` e abra a tarefa de wiring do custom_reference_id."
-            )
         args = [
             self._hf,
             "generate",
@@ -82,6 +77,10 @@ class CliHiggsFieldClient:
             "--wait",
             "--json",
         ]
+        # O CLI `hf` aceita o soul_id direto como string e monta o objeto
+        # custom_reference_id internamente (validado via `hf generate cost`).
+        if soul_id:
+            args += ["--custom_reference_id", soul_id]
         try:
             proc = self._run(args, _TIMEOUT_S)
         except FileNotFoundError as e:

@@ -92,10 +92,21 @@ def test_quality_invalida_levanta_error() -> None:
         CliHiggsFieldClient(hf_path="hf", runner=_runner(), quality="8k")
 
 
-def test_soul_id_ainda_nao_suportado_levanta_error() -> None:
-    client = CliHiggsFieldClient(hf_path="hf", runner=_runner())
-    with pytest.raises(HiggsFieldError, match="soul-id create"):
-        client.generate_image("cena", soul_id="ref-123")
+def test_soul_id_vai_como_custom_reference_id() -> None:
+    runner = _runner(stdout='{"result_url":"https://cdn.higgsfield.ai/a/x.jpg"}')
+    client = CliHiggsFieldClient(hf_path="hf", runner=runner)
+    client.generate_image("cena", soul_id="ref-123")
+    args = runner.captura["args"]  # type: ignore[attr-defined]
+    assert "--custom_reference_id" in args
+    assert "ref-123" in args
+
+
+def test_sem_soul_id_nao_inclui_custom_reference_id() -> None:
+    runner = _runner(stdout='{"result_url":"https://cdn.higgsfield.ai/a/x.jpg"}')
+    client = CliHiggsFieldClient(hf_path="hf", runner=runner)
+    client.generate_image("cena")
+    args = runner.captura["args"]  # type: ignore[attr-defined]
+    assert "--custom_reference_id" not in args
 
 
 def test_exit_nao_zero_levanta_error_com_stderr() -> None:

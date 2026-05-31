@@ -193,9 +193,10 @@ def gerar_imagem(
     ),
 ) -> None:
     """Gera uma imagem via Higgsfield (modelo Soul V2) e imprime a URL retornada."""
+    soul = soul_id or (StellaConfig().higgsfield_soul_id or None)
     try:
         cliente = _build_higgsfield_client(aspect_ratio=aspect_ratio)
-        url = cliente.generate_image(prompt, soul_id=soul_id)
+        url = cliente.generate_image(prompt, soul_id=soul)
     except (HiggsFieldError, RuntimeError) as e:
         typer.echo(f"Senhor, nao consegui gerar imagem no Higgsfield: {e}", err=True)
         raise typer.Exit(code=1) from e
