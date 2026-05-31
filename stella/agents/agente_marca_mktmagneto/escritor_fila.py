@@ -26,6 +26,7 @@ class EscritorFila:
         design_spec_path: str,
         agendar_para: datetime,
         status: str = "pending_render",
+        imagens: list[str] | None = None,
         qa_warnings: list[str] | None = None,
     ) -> str:
         """Retorna o path da nota .md escrita."""
@@ -38,7 +39,7 @@ class EscritorFila:
             "agendar-para": agendar_para.strftime("%Y-%m-%d %H:%M"),
             "status": status,
             "design_spec": design_spec_path,
-            "imagens": [],
+            "imagens": imagens or [],
         }
         if qa_warnings:
             frontmatter["qa_warnings"] = qa_warnings
