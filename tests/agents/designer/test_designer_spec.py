@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from stella.agents.designer.agent import Agent as Designer
+from stella.agents.designer.agent import _limpar_texto_slide
 from stella.agents.designer.spec import DesignSpec, SlideSpec
 from stella.framework.testing.fakes import FakeLLM, FakeVault
 
@@ -198,6 +199,33 @@ def test_carrossel_gera_spec_com_n_slides() -> None:
     assert spec.slides[0].template == "capa-carrossel"
     assert spec.slides[1].template == "slide-conteudo"
     assert spec.status == "pending_render"
+
+
+def test_conteudo_dos_slides_alinha_com_placeholders_do_template() -> None:
+    designer, vault = _make_designer()
+    pauta = {**_PAUTA_CARROSSEL, "titulo": "Como montar um fluxo"}
+    copy = {
+        **_COPY,
+        "slides": [
+            "Slide 1",
+            'SLIDE 2 - O PROBLEMA\nTitulo: "X"\nCorpo:\nlinha a\nlinha b',
+        ],
+    }
+
+    out = designer.execute({"knowledge_pack": _KP, "pauta": pauta, "copy": copy})
+
+    spec_json = vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
+    spec = DesignSpec.from_json(spec_json)
+    assert spec.slides[0].conteudo["code_pauta"] == "como montar um fluxo"
+    assert spec.slides[0].conteudo["code_formato"] == "carrossel"
+    assert spec.slides[1].conteudo["counter"] == "02 / 02"
+    assert spec.slides[1].conteudo["texto"] == "linha a\nlinha b"
+
+
+def test_limpar_texto_slide_remove_metadados_de_planejamento() -> None:
+    texto = 'SLIDE 3 - VIRADA\nTitulo: "Gancho"\nCorpo:\nvalor final'
+
+    assert _limpar_texto_slide(texto) == "valor final"
 
 
 def test_post_unico_gera_spec_com_1_slide() -> None:

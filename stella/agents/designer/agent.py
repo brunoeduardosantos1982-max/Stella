@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -203,11 +204,19 @@ class Agent(BaseAgent):
         pilar = str(pauta.get("pilar", ""))
         tag = f"{pilar} - mktmagneto.ia" if pilar else "mktmagneto.ia"
         linha1, destaque = _split_headline(titulo)
+        textos = copy.get("slides", [])
+        total_conteudo = max(1, len(textos) - 1)
 
         capa = SlideSpec(
             index=0,
             template=decisao["template_escolhido"],
-            conteudo={"headline_linha1": linha1, "headline_destaque": destaque, "tag": tag},
+            conteudo={
+                "headline_linha1": linha1,
+                "headline_destaque": destaque,
+                "tag": tag,
+                "code_pauta": str(titulo).lower(),
+                "code_formato": tipo,
+            },
             foto=decisao["foto_escolhida"] or None,
             soul_id_prompt=decisao.get("soul_id_prompt"),
             referencias_usadas=decisao.get("referencias_usadas", []),
@@ -215,13 +224,16 @@ class Agent(BaseAgent):
         slides = [capa]
 
         if tipo == "carrossel":
-            textos = copy.get("slides", [])
             for i, texto in enumerate(textos[1:], start=1):
                 slides.append(
                     SlideSpec(
                         index=i,
                         template="slide-conteudo",
-                        conteudo={"texto": str(texto), "tag": tag},
+                        conteudo={
+                            "counter": f"{i + 1:02d} / {total_conteudo + 1:02d}",
+                            "texto": _limpar_texto_slide(str(texto)),
+                            "tag": tag,
+                        },
                     )
                 )
 
@@ -259,3 +271,14 @@ def _split_headline(titulo: str) -> tuple[str, str]:
         return " ".join(words[:-1]), words[-1]
     cut = max(1, round(len(words) * 0.55))
     return " ".join(words[:cut]), " ".join(words[cut:])
+
+
+def _limpar_texto_slide(texto: str) -> str:
+    linhas = texto.replace("\r\n", "\n").split("\n")
+    if linhas and re.match(r"^\s*SLIDE\s+\d+\b", linhas[0], flags=re.IGNORECASE):
+        linhas = linhas[1:]
+    if linhas and re.match(r'^\s*T[ií]tulo:\s*".*"\s*$', linhas[0], flags=re.IGNORECASE):
+        linhas = linhas[1:]
+    if linhas and re.match(r"^\s*Corpo:\s*$", linhas[0], flags=re.IGNORECASE):
+        linhas = linhas[1:]
+    return "\n".join(linhas).strip()
