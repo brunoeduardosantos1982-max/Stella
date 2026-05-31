@@ -132,13 +132,13 @@ class AutoQA:
         slides_planejados = designer_resultado.get("slides_planejados") or designer_resultado.get(
             "slides_renderizados", 0
         )
-        legenda_preview = str(copy.get("legenda", ""))[:120]
+        legenda = str(copy.get("legenda", ""))
         return (
             "Aplique as skills `composicao-visual-social-2026` e `hierarquia-informacional-feed`.\n\n"
             f"FORMATO: {formato}\n"
             f"TEMPLATE DA CAPA: {template_capa}\n"
             f"SLIDES PLANEJADOS: {slides_planejados}\n"
-            f"LEGENDA (preview): {legenda_preview}\n\n"
+            f"LEGENDA (completa):\n{legenda}\n\n"
             "Avalie se as escolhas de design são adequadas para o conteúdo.\n"
             "REGRA DE EXTENSÃO: carrosséis de 3 a 5 slides são aceitáveis. NÃO reprove "
             "um carrossel apenas por ter menos de 5 slides — só sinalize se o conteúdo "

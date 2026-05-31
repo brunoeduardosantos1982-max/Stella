@@ -121,6 +121,25 @@ def test_prompt_copy_inclui_referencia_quando_presente():
     assert "prova concreta" in prompt
 
 
+def test_prompt_visual_inclui_legenda_completa_nao_truncada():
+    """Regressão: o QA visual recebia legenda[:120], cortando legendas reais no
+    meio (ex.: exatamente em 'Tem ') e gerando falso positivo de 'copy truncada'.
+    Deve receber a legenda INTEIRA para validar coerência legenda↔slides."""
+    qa = AutoQA(llm=FakeLLM())
+    legenda = (
+        "🔥 99% dos empresários acha que está usando IA. Na prática, estão só "
+        "conversando com ela — e pagando caro por isso.\n\nTem 20 mitos circulando "
+        "no mercado.\n\n👇 Comenta MITO que eu te mando o mapa no direct."
+    )
+    prompt = qa._montar_prompt_visual(
+        copy={"legenda": legenda},
+        designer_resultado={"formato": "carrossel", "slides_planejados": 3},
+    )
+    # legenda passa de 120 chars; o final (CTA) precisa estar presente, não cortado
+    assert "Comenta MITO" in prompt
+    assert "mapa no direct" in prompt
+
+
 def test_prompt_visual_aceita_carrossel_de_3_a_5_slides():
     """Regra afrouxada: carrosséis de 3 a 5 slides são aceitáveis. O QA não deve
     inventar um piso de 5 e reprovar um carrossel de 3 (as skills não são injetadas
