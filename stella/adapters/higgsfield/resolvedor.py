@@ -9,12 +9,15 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 import httpx
 
 from stella.adapters.higgsfield.base import HiggsFieldClient
 from stella.adapters.vault.base import VaultRepository
-from stella.agents.designer.spec import DesignSpec
+
+if TYPE_CHECKING:
+    from stella.agents.designer.spec import DesignSpec
 
 _IMAGENS_DIR = "C04 Claude Obsidian/outputs/mktmagneto-ia/imagens"
 _DOWNLOAD_TIMEOUT_S = 30
