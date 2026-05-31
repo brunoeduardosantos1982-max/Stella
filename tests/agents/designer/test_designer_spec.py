@@ -77,6 +77,28 @@ def test_designspec_roundtrip_preserva_referencias_usadas() -> None:
     assert restaurado.slides[0].referencias_usadas == ["ref-a.jpeg"]
 
 
+def test_slidespec_foto_hero_roundtrip_json() -> None:
+    spec = DesignSpec(
+        formato="post-unico",
+        dimensoes=[1080, 1350],
+        slides=[
+            SlideSpec(
+                index=0,
+                template="foto-hero",
+                conteudo={},
+                tema="mitos",
+                foto_hero={"headline": "5 MITOS", "logos": ["claude", "openai"]},
+            ),
+        ],
+    )
+
+    recuperado = DesignSpec.from_json(spec.to_json())
+
+    assert recuperado.slides[0].tema == "mitos"
+    assert recuperado.slides[0].foto_hero is not None
+    assert recuperado.slides[0].foto_hero["headline"] == "5 MITOS"
+
+
 def test_designspec_from_json_aceita_spec_antigo_sem_referencias() -> None:
     """Specs gravados antes deste campo nao devem quebrar o parse."""
     antigo = (
