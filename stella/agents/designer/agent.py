@@ -16,6 +16,7 @@ from stella.agents.designer.creative_index import (
     filtrar,
 )
 from stella.agents.designer.spec import DesignSpec, SlideSpec
+from stella.agents.designer.temas.registry import TEMAS
 from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
 
@@ -151,15 +152,21 @@ class Agent(BaseAgent):
             + diretiva_var
             + "Escolha a ROTA: 'tipografico' (Paper puro), "
             "'foto-local' (usar uma FotoBruno do brief), "
-            "'foto-higgsfield' (gerar imagem com Soul ID quando houver soul_id_prompt).\n"
+            "'foto-higgsfield' (gerar imagem com Soul ID quando houver soul_id_prompt), "
+            "'foto-hero' (capa foto-heroi composta: Higgsfield + tipografia).\n"
             "Use foto para historias pessoais/credibilidade/resultados; "
             "tipografico para conceitual.\n\n"
+            "'foto-hero' = capa foto-heroi composta (Higgsfield + tipografia). "
+            "Se escolher foto-hero, informe tema (um de: mitos) e o bloco foto_hero.\n\n"
             "Devolva APENAS YAML:\n"
-            "rota: <tipografico|foto-local|foto-higgsfield>\n"
+            "rota: <tipografico|foto-local|foto-higgsfield|foto-hero>\n"
+            "tema: <mitos|vazio>\n"
             "template_escolhido: <nome-exato>\n"
             "foto_escolhida: <nome-do-arquivo-ou-vazio>\n"
             "soul_id_prompt: <prompt-para-Higgsfield-ou-null>\n"
             "referencias_usadas: [<arquivos-de-referencia-que-inspiraram-ou-vazio>]\n"
+            "foto_hero: {headline, label_topo, sublabel, anotacoes:[ate2], "
+            "logos:[claude/openai]} (ou vazio)\n"
             "rationale: <motivo>\n"
         )
 
@@ -179,7 +186,7 @@ class Agent(BaseAgent):
             foto = ""
         rota = str(dados.get("rota", "tipografico")).strip() or "tipografico"
         soul_id_prompt = str(dados.get("soul_id_prompt") or "").strip() or None
-        if rota not in {"tipografico", "foto-local", "foto-higgsfield"}:
+        if rota not in {"tipografico", "foto-local", "foto-higgsfield", "foto-hero"}:
             rota = "tipografico"
         if rota == "foto-higgsfield":
             foto = ""
@@ -190,6 +197,16 @@ class Agent(BaseAgent):
             template = "capa-carrossel"
         refs = dados.get("referencias_usadas") or []
         refs = [str(r) for r in refs] if isinstance(refs, list) else []
+        tema = str(dados.get("tema") or "").strip() or None
+        foto_hero_raw = dados.get("foto_hero")
+        foto_hero = foto_hero_raw if isinstance(foto_hero_raw, dict) else None
+        if rota == "foto-hero" and (tema not in TEMAS or not foto_hero):
+            rota = "tipografico"
+            tema = None
+            foto_hero = None
+        if rota != "foto-hero":
+            tema = None
+            foto_hero = None
 
         return {
             "rota": rota,
@@ -198,6 +215,8 @@ class Agent(BaseAgent):
             "rationale": str(dados.get("rationale", "")),
             "soul_id_prompt": soul_id_prompt,
             "referencias_usadas": refs,
+            "tema": tema,
+            "foto_hero": foto_hero,
         }
 
     def _construir_slides(
@@ -207,6 +226,17 @@ class Agent(BaseAgent):
         decisao: dict[str, Any],
         tipo: str,
     ) -> list[SlideSpec]:
+        if decisao.get("rota") == "foto-hero":
+            return [
+                SlideSpec(
+                    index=0,
+                    template="foto-hero",
+                    conteudo={},
+                    tema=decisao.get("tema"),
+                    foto_hero=decisao.get("foto_hero"),
+                )
+            ]
+
         titulo = pauta.get("titulo", "")
         pilar = str(pauta.get("pilar", ""))
         tag = f"{pilar} - mktmagneto.ia" if pilar else "mktmagneto.ia"

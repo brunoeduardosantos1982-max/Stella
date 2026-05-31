@@ -1,0 +1,32 @@
+from stella.agents.designer.temas.base import FotoHeroContent
+from stella.agents.designer.temas.registry import TEMAS, get_tema
+
+
+def _content() -> FotoHeroContent:
+    return FotoHeroContent(
+        headline="5 MITOS\nSOBRE IA",
+        sublabel="e a verdade que ninguém te conta",
+        label_topo="PARE DE ACREDITAR\nNESSES MITOS",
+        anotacoes=["conversar com IA não é usar IA ->", "<- quem constrói sai do nível 1"],
+        logos=["claude", "openai"],
+        counter="01 / 03",
+    )
+
+
+def test_registry_tem_mitos() -> None:
+    assert "mitos" in TEMAS
+    assert get_tema("mitos").nome == "mitos"
+
+
+def test_mitos_hf_prompt_pede_careca_e_flatlay() -> None:
+    p = get_tema("mitos").hf_prompt().lower()
+    assert "careca" in p and ("top-down" in p or "de cima" in p)
+
+
+def test_mitos_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("mitos").html(_content(), "data:image/png;base64,AAAA")
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,AAAA" in html
+    assert "conversar com IA" in html
+    assert "PARE DE ACREDITAR" in html
+    assert "svg" in html.lower()

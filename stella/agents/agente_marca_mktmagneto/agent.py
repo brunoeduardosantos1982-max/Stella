@@ -12,10 +12,14 @@ from typing import Any, cast
 
 from stella.adapters.higgsfield.base import HiggsFieldClient
 from stella.adapters.higgsfield.resolvedor import ResolvedorImagens
+from stella.adapters.render.html_renderer import HtmlRenderer
+from stella.agents.designer.compositor import HtmlCompositor
+from stella.agents.designer.resolvedor_foto_hero import ResolvedorFotoHero
 from stella.agents.designer.spec import DesignSpec
 from stella.domain.post import PostTexto
 from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
+from stella.infra.config import StellaConfig
 
 from .autoqa import AutoQA
 from .carregador_marca import CarregadorMarca
@@ -221,6 +225,13 @@ class Agent(BaseAgent):
                     higgs_warnings = ResolvedorImagens(
                         higgs=cast(HiggsFieldClient, higgs_mcp), vault=self._vault
                     ).resolver(spec, post_id=post_id)
+                    if any(s.foto_hero for s in spec.slides):
+                        rend = HtmlRenderer(browser_path=StellaConfig().render_browser_path or None)
+                        comp = HtmlCompositor(renderer=rend, vault=self._vault)
+                        foto_hero_warnings = ResolvedorFotoHero(
+                            higgs=cast(HiggsFieldClient, higgs_mcp), compositor=comp
+                        ).resolver(spec, post_id=post_id)
+                        post_warnings.extend(foto_hero_warnings)
                     self._vault.write_binary(design_spec_path, spec.to_json().encode("utf-8"))
                     imagens = [s.foto for s in spec.slides if s.foto]
                     post_warnings.extend(higgs_warnings)

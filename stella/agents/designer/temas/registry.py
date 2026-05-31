@@ -1,0 +1,14 @@
+"""Registry de temas do formato foto-heroi."""
+
+from __future__ import annotations
+
+from stella.agents.designer.temas.base import TemaRecipe
+from stella.agents.designer.temas.mitos import MitosRecipe
+
+TEMAS: dict[str, TemaRecipe] = {MitosRecipe.nome: MitosRecipe()}
+
+
+def get_tema(nome: str) -> TemaRecipe:
+    if nome not in TEMAS:
+        raise KeyError(f"tema desconhecido: {nome!r}")
+    return TEMAS[nome]
