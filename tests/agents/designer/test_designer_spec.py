@@ -301,3 +301,73 @@ def test_designer_variedade_contexto_entra_no_prompt(designer_com_indice) -> Non
         }
     )
     assert "foto-local" in fake_llm.calls[0]
+
+
+def _designer_com_fotos(escolha_yaml: str, fotos: list[str]) -> tuple[Designer, FakeLLM, list[str]]:
+    """Designer cujo vault expõe `fotos` em FotosBruno; router espião registra a complexity."""
+    chamadas: list[str] = []
+    fake_llm = FakeLLM(responses=[escolha_yaml])
+
+    class _SpyRouter:
+        def select(self, complexity: str = "low") -> FakeLLM:
+            chamadas.append(complexity)
+            return fake_llm
+
+    class _Vault(FakeVault):
+        def read_binary(self, path: str) -> bytes:
+            raise FileNotFoundError(path)
+
+        def write_binary(self, path: str, dados: bytes) -> None:
+            return None
+
+        def list_files_in_folder(self, folder: str, extensions: Any = None) -> list[str]:
+            return list(fotos)
+
+    agent = Designer(llm=_SpyRouter(), vault=_Vault())  # type: ignore[arg-type]
+    return agent, fake_llm, chamadas
+
+
+_YAML_TIPO = (
+    "rota: tipografico\ntemplate_escolhido: capa-carrossel\n"
+    "foto_escolhida:\nsoul_id_prompt: null\nreferencias_usadas: []\nrationale: ok\n"
+)
+
+
+def test_designer_decisao_usa_modelo_high_nao_low() -> None:
+    """A decisão de template/rota deve rodar no tier forte (sonnet), não no gemma barato."""
+    agent, _, chamadas = _designer_com_fotos(_YAML_TIPO, fotos=[])
+    agent.execute(
+        {
+            "knowledge_pack": {},
+            "pauta": {"tipo": "carrossel", "titulo": "t", "pilar": 1},
+            "copy": {"slides": ["c", "x"]},
+        }
+    )
+    assert "high" in chamadas
+    assert "low" not in chamadas
+
+
+def test_designer_forca_troca_apos_dois_estilos_iguais_com_foto() -> None:
+    agent, fake_llm, _ = _designer_com_fotos(_YAML_TIPO, fotos=["IMG_0520.JPG"])
+    agent.execute(
+        {
+            "knowledge_pack": {},
+            "pauta": {"tipo": "carrossel", "titulo": "t", "pilar": 1},
+            "copy": {"slides": ["c", "x"]},
+            "variedade_contexto": ["tipografico", "tipografico"],
+        }
+    )
+    assert "DIFERENTE" in fake_llm.calls[0]
+
+
+def test_designer_nao_forca_troca_com_um_estilo_so() -> None:
+    agent, fake_llm, _ = _designer_com_fotos(_YAML_TIPO, fotos=["IMG_0520.JPG"])
+    agent.execute(
+        {
+            "knowledge_pack": {},
+            "pauta": {"tipo": "carrossel", "titulo": "t", "pilar": 1},
+            "copy": {"slides": ["c", "x"]},
+            "variedade_contexto": ["tipografico"],
+        }
+    )
+    assert "DIFERENTE" not in fake_llm.calls[0]

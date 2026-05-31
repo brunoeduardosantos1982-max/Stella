@@ -128,7 +128,16 @@ class Agent(BaseAgent):
 
         fotos_txt = "\n".join(f"  - {f}" for f in fotos) if fotos else "  (nenhuma disponivel)"
         brief_txt = brief_para_prompt(brief) if brief is not None else ""
-        var_txt = ", ".join(variedade_contexto or []) or "nenhum"
+        vc = variedade_contexto or []
+        var_txt = ", ".join(vc) or "nenhum"
+        forcar_troca = len(vc) >= 2 and vc[-1] == vc[-2] and bool(fotos)
+        diretiva_var = (
+            f"Os ultimos 2 posts usaram '{vc[-1]}'. AGORA escolha um estilo DIFERENTE: "
+            "se houver uma FotoBruno adequada no brief, use 'foto-local'. "
+            "Nao repita o mesmo estilo 3x seguidas.\n\n"
+            if forcar_troca
+            else "Prefira VARIAR (nao repita o mesmo estilo).\n\n"
+        )
 
         prompt = (
             "Voce e o Designer do Time de Marketing.\n"
@@ -138,8 +147,8 @@ class Agent(BaseAgent):
             f"FOTOS DO BRUNO:\n{fotos_txt}\n\n"
             f"{brief_txt}\n\n"
             f"ESTILOS JA USADOS NESTA LEVA: {var_txt}. "
-            "Prefira VARIAR (nao repita o mesmo estilo).\n\n"
-            "Escolha a ROTA: 'tipografico' (Paper puro), "
+            + diretiva_var
+            + "Escolha a ROTA: 'tipografico' (Paper puro), "
             "'foto-local' (usar uma FotoBruno do brief).\n"
             "Use foto para historias pessoais/credibilidade/resultados; "
             "tipografico para conceitual.\n\n"
@@ -152,7 +161,7 @@ class Agent(BaseAgent):
             "rationale: <motivo>\n"
         )
 
-        resposta = self._llm.select(complexity="low").complete(prompt).texto  # type: ignore[union-attr]
+        resposta = self._llm.select(complexity="high").complete(prompt).texto  # type: ignore[union-attr]
         try:
             dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
         except yaml.YAMLError:
