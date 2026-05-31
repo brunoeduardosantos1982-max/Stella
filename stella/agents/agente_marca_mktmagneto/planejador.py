@@ -71,8 +71,7 @@ class Planejador:
         briefing: str,
     ) -> str:
         bloco_briefing = (
-            "BRIEFING DA MARCA (fonte da verdade — nicho, pilares e voz):\n"
-            f"{briefing.strip()}\n\n"
+            f"BRIEFING DA MARCA (fonte da verdade — nicho, pilares e voz):\n{briefing.strip()}\n\n"
             if briefing.strip()
             else ""
         )

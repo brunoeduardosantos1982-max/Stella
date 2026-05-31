@@ -26,6 +26,7 @@ capacidades_externas:
 vault_scope:
   - "C04 Claude Obsidian/outputs/mktmagneto-ia/**"
   - "C04 Claude Obsidian/Stella-publicacao/pendentes/**"
+  - "A03 Banco de Imagens/creative-index.json"
   - "A03 Banco de Imagens/referencias para criativos/**"
   - "A03 Banco de Imagens/FotosBruno/**"
 

@@ -17,6 +17,7 @@ class SlideSpec:
     conteudo: dict[str, str]
     foto: str | None = None
     soul_id_prompt: str | None = None
+    referencias_usadas: list[str] = field(default_factory=list)
 
 
 @dataclass

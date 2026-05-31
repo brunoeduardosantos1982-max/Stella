@@ -131,6 +131,7 @@ class Agent(BaseAgent):
         escritor = EscritorFila(vault=self._vault)
         erros: list[str] = []
         posts_em_rascunho = 0
+        estilos_usados: list[str] = []
 
         for i, pauta in enumerate(pautas):
             post_warnings: list[str] = []
@@ -178,12 +179,20 @@ class Agent(BaseAgent):
 
             # Design
             design_out = self.delegate_to(
-                "designer", {"knowledge_pack": knowledge_pauta, "pauta": pauta_dict, "copy": copy}
+                "designer",
+                {
+                    "knowledge_pack": knowledge_pauta,
+                    "pauta": pauta_dict,
+                    "copy": copy,
+                    "variedade_contexto": list(estilos_usados),
+                },
             )
             if not design_out.sucesso:
                 erros.append(f"Post {i + 1}: designer falhou — {design_out.mensagens}")
                 continue
             designer_resultado = design_out.resultado
+            rota_usada = str(designer_resultado.get("rota", "tipografico"))
+            estilos_usados.append(rota_usada)
 
             # QA visual — apenas aviso, nunca bloqueia
             if not autoqa.aprova_visual(copy=copy, designer_resultado=designer_resultado):
