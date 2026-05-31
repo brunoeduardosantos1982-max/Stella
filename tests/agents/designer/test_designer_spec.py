@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from stella.agents.designer.agent import Agent as Designer
+from stella.agents.designer.agent import _limpar_texto_slide
 from stella.agents.designer.spec import DesignSpec, SlideSpec
 from stella.framework.testing.fakes import FakeLLM, FakeVault
 
@@ -200,6 +201,33 @@ def test_carrossel_gera_spec_com_n_slides() -> None:
     assert spec.status == "pending_render"
 
 
+def test_conteudo_dos_slides_alinha_com_placeholders_do_template() -> None:
+    designer, vault = _make_designer()
+    pauta = {**_PAUTA_CARROSSEL, "titulo": "Como montar um fluxo"}
+    copy = {
+        **_COPY,
+        "slides": [
+            "Slide 1",
+            'SLIDE 2 - O PROBLEMA\nTitulo: "X"\nCorpo:\nlinha a\nlinha b',
+        ],
+    }
+
+    out = designer.execute({"knowledge_pack": _KP, "pauta": pauta, "copy": copy})
+
+    spec_json = vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
+    spec = DesignSpec.from_json(spec_json)
+    assert spec.slides[0].conteudo["code_pauta"] == "como montar um fluxo"
+    assert spec.slides[0].conteudo["code_formato"] == "carrossel"
+    assert spec.slides[1].conteudo["counter"] == "02 / 02"
+    assert spec.slides[1].conteudo["texto"] == "linha a\nlinha b"
+
+
+def test_limpar_texto_slide_remove_metadados_de_planejamento() -> None:
+    texto = 'SLIDE 3 - VIRADA\nTitulo: "Gancho"\nCorpo:\nvalor final'
+
+    assert _limpar_texto_slide(texto) == "valor final"
+
+
 def test_post_unico_gera_spec_com_1_slide() -> None:
     designer, vault = _make_designer()
     out = designer.execute(
@@ -263,6 +291,48 @@ def test_designer_grava_rota_e_referencias_no_resultado(designer_com_indice) -> 
         }
     )
     assert out.resultado["rota"] == "foto-local"
+
+
+def test_designer_aceita_rota_foto_higgsfield_com_soul_id_prompt() -> None:
+    designer, vault = _make_designer(
+        [
+            "rota: foto-higgsfield\n"
+            "template_escolhido: capa-foto-bg\n"
+            "foto_escolhida:\n"
+            "soul_id_prompt: Bruno em estudio, luz lateral cinematografica\n"
+            "referencias_usadas: [ref-a.jpeg]\n"
+            "rationale: precisa de cena gerada\n"
+        ]
+    )
+
+    out = designer.execute({"knowledge_pack": _KP, "pauta": _PAUTA_CARROSSEL, "copy": _COPY})
+
+    spec_json = vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
+    spec = DesignSpec.from_json(spec_json)
+    assert out.resultado["rota"] == "foto-higgsfield"
+    assert spec.slides[0].soul_id_prompt == "Bruno em estudio, luz lateral cinematografica"
+    assert spec.slides[0].foto is None
+
+
+def test_designer_rota_higgsfield_sem_prompt_cai_para_tipografico() -> None:
+    designer, vault = _make_designer(
+        [
+            "rota: foto-higgsfield\n"
+            "template_escolhido: capa-foto-bg\n"
+            "foto_escolhida:\n"
+            "soul_id_prompt: null\n"
+            "referencias_usadas: []\n"
+            "rationale: invalido\n"
+        ]
+    )
+
+    out = designer.execute({"knowledge_pack": _KP, "pauta": _PAUTA_CARROSSEL, "copy": _COPY})
+
+    spec_json = vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
+    spec = DesignSpec.from_json(spec_json)
+    assert out.resultado["rota"] == "tipografico"
+    assert spec.slides[0].template == "capa-carrossel"
+    assert spec.slides[0].soul_id_prompt is None
 
 
 def test_designer_indice_ausente_nao_quebra(designer_com_indice) -> None:
