@@ -1,5 +1,10 @@
 """Testes do DesignSpecGenerator e das dataclasses de spec."""
 
+import json as _json
+from typing import Any
+
+import pytest
+
 from stella.agents.designer.agent import Agent as Designer
 from stella.agents.designer.spec import DesignSpec, SlideSpec
 from stella.framework.testing.fakes import FakeLLM, FakeVault
@@ -110,6 +115,63 @@ rationale: "Conteúdo conceitual"
 soul_id_prompt: null
 """
 
+_INDEX_JSON = _json.dumps(
+    {
+        "fotos_bruno": [
+            {
+                "arquivo": "IMG_0520.JPG",
+                "uso_recomendado": ["autoridade"],
+                "qualidade": "alta",
+                "enquadramento": "close",
+                "expressao": "falando",
+                "fundo": "neutro",
+                "orientacao": "retrato",
+                "quando_usar": "autoridade",
+                "quando_evitar": "tecnico",
+            }
+        ],
+        "referencias": [
+            {
+                "arquivo": "ref-a.jpeg",
+                "plataforma": "instagram",
+                "tipo_post": "carrossel",
+                "padrao_visual": "numero gigante",
+                "principios": ["1 elemento focal"],
+                "quando_usar": "dado",
+                "nao_copiar": "so hierarquia",
+            }
+        ],
+    },
+    ensure_ascii=False,
+)
+
+
+@pytest.fixture
+def designer_com_indice():
+    def _build(index_json: str | None, escolha_yaml: str):
+        class _Vault(FakeVault):
+            def read_binary(self, path: str) -> bytes:
+                if index_json is not None and path.endswith("creative-index.json"):
+                    return index_json.encode("utf-8")
+                raise FileNotFoundError(path)
+
+            def write_binary(self, path: str, dados: bytes) -> None:
+                return None
+
+            def list_files_in_folder(self, folder: str, extensions: Any = None) -> list[str]:
+                return []
+
+        fake_llm = FakeLLM(responses=[escolha_yaml])
+
+        class _Router:
+            def select(self, complexity: str = "low") -> FakeLLM:
+                return fake_llm
+
+        agent = Designer(llm=_Router(), vault=_Vault())  # type: ignore[arg-type]
+        return agent, fake_llm
+
+    return _build
+
 
 def _make_designer(responses: list[str] | None = None) -> tuple[Designer, FakeVault]:
     vault = FakeVault()
@@ -160,3 +222,82 @@ def test_stories_tem_dimensao_correta() -> None:
     spec = DesignSpec.from_json(spec_json)
     assert spec.formato == "stories"
     assert spec.dimensoes == [1080, 1920]
+
+
+def test_designer_injeta_brief_de_referencia_no_prompt(designer_com_indice) -> None:
+    """As fotos/referencias do indice entram no prompt do LLM de decisao."""
+    agent, fake_llm = designer_com_indice(
+        _INDEX_JSON,
+        escolha_yaml=(
+            "rota: foto-local\ntemplate_escolhido: capa-foto-split\n"
+            "foto_escolhida: IMG_0520.JPG\nsoul_id_prompt: null\n"
+            "referencias_usadas: [ref-a.jpeg]\nrationale: ok\n"
+        ),
+    )
+    agent.execute(
+        {
+            "knowledge_pack": {},
+            "pauta": {"tipo": "carrossel", "titulo": "t", "pilar": 1},
+            "copy": {"slides": ["s0", "s1"]},
+        }
+    )
+    prompt = fake_llm.calls[0]
+    assert "IMG_0520.JPG" in prompt
+    assert "1 elemento focal" in prompt
+
+
+def test_designer_grava_rota_e_referencias_no_resultado(designer_com_indice) -> None:
+    agent, _ = designer_com_indice(
+        _INDEX_JSON,
+        escolha_yaml=(
+            "rota: foto-local\ntemplate_escolhido: capa-foto-split\n"
+            "foto_escolhida: IMG_0520.JPG\nsoul_id_prompt: null\n"
+            "referencias_usadas: [ref-a.jpeg]\nrationale: ok\n"
+        ),
+    )
+    out = agent.execute(
+        {
+            "knowledge_pack": {},
+            "pauta": {"tipo": "carrossel", "titulo": "t", "pilar": 1},
+            "copy": {"slides": ["s0", "s1"]},
+        }
+    )
+    assert out.resultado["rota"] == "foto-local"
+
+
+def test_designer_indice_ausente_nao_quebra(designer_com_indice) -> None:
+    """Sem indice (vault sem o arquivo), designer cai no comportamento atual."""
+    agent, _ = designer_com_indice(
+        None,
+        escolha_yaml=(
+            "rota: tipografico\ntemplate_escolhido: capa-carrossel\n"
+            "foto_escolhida:\nsoul_id_prompt: null\nreferencias_usadas: []\nrationale: ok\n"
+        ),
+    )
+    out = agent.execute(
+        {
+            "knowledge_pack": {},
+            "pauta": {"tipo": "carrossel", "titulo": "t", "pilar": 1},
+            "copy": {"slides": ["s0", "s1"]},
+        }
+    )
+    assert out.sucesso is True
+
+
+def test_designer_variedade_contexto_entra_no_prompt(designer_com_indice) -> None:
+    agent, fake_llm = designer_com_indice(
+        _INDEX_JSON,
+        escolha_yaml=(
+            "rota: tipografico\ntemplate_escolhido: capa-carrossel\n"
+            "foto_escolhida:\nsoul_id_prompt: null\nreferencias_usadas: []\nrationale: ok\n"
+        ),
+    )
+    agent.execute(
+        {
+            "knowledge_pack": {},
+            "pauta": {"tipo": "carrossel", "titulo": "t", "pilar": 1},
+            "copy": {"slides": ["s0", "s1"]},
+            "variedade_contexto": ["foto-local", "foto-local"],
+        }
+    )
+    assert "foto-local" in fake_llm.calls[0]

@@ -1,4 +1,4 @@
-"""Designer — DesignSpecGenerator: decide template/foto/conteúdo e salva design_spec.json."""
+"""Designer: gera DesignSpec JSON com decisoes de template/foto por slide."""
 
 from __future__ import annotations
 
@@ -8,13 +8,18 @@ from typing import Any
 import yaml
 
 from stella.agents.agente_marca_mktmagneto.planejador import _strip_code_fence
+from stella.agents.designer.creative_index import (
+    ReferenceBrief,
+    brief_para_prompt,
+    carregar_index,
+    filtrar,
+)
 from stella.agents.designer.spec import DesignSpec, SlideSpec
 from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
 
 _BRT = timezone(timedelta(hours=-3))
 _PENDENTES_DIR = "C04 Claude Obsidian/Stella-publicacao/pendentes"
-_REFS_FOLDER = "A03 Banco de Imagens/referencias para criativos"
 _FOTOS_FOLDER = "A03 Banco de Imagens/FotosBruno"
 _FOTO_EXTS: set[str] = {".jpg", ".jpeg", ".png", ".webp"}
 _TEMPLATES_COM_FOTO: frozenset[str] = frozenset(
@@ -29,13 +34,13 @@ _FORMATOS_VIDEO: frozenset[str] = frozenset({"video", "reels"})
 
 
 class Agent(BaseAgent):
-    """Especialista de design: produz DesignSpec JSON — não renderiza PNG."""
+    """Especialista de design: produz DesignSpec JSON, sem renderizar PNG."""
 
     def execute(self, input: dict[str, Any]) -> AgentOutput:  # noqa: A002
         if self._vault is None:
-            return AgentOutput(resultado={}, sucesso=False, mensagens=["Vault não injetado"])
+            return AgentOutput(resultado={}, sucesso=False, mensagens=["Vault nao injetado"])
         if self._llm is None:
-            return AgentOutput(resultado={}, sucesso=False, mensagens=["LLM não injetado"])
+            return AgentOutput(resultado={}, sucesso=False, mensagens=["LLM nao injetado"])
 
         pauta = input.get("pauta") or {}
         tipo = str(pauta.get("tipo", "carrossel"))
@@ -47,8 +52,6 @@ class Agent(BaseAgent):
             return self._spec_landing_page(input)
 
         return self._spec_imagem(input, tipo)
-
-    # ── formatos ────────────────────────────────────────────────────────────────
 
     def _spec_video(self, pauta: dict[str, Any]) -> AgentOutput:
         spec = DesignSpec(formato="video", dimensoes=[], video_clarificacao="aguardando_input")
@@ -70,10 +73,15 @@ class Agent(BaseAgent):
         pauta = input.get("pauta") or {}
         copy = input.get("copy") or {}
         knowledge_pack = input.get("knowledge_pack") or {}
+        variedade_contexto = input.get("variedade_contexto") or []
 
         fotos = self._listar_recursos(_FOTOS_FOLDER)
-        decisao = self._decidir_template(knowledge_pack, pauta, copy, fotos)
-        slides = self._construir_slides(pauta, copy, decisao, fotos, tipo)
+        index = carregar_index(self._vault)
+        brief = filtrar(index, pauta, copy)
+        decisao = self._decidir_template(
+            knowledge_pack, pauta, copy, fotos, brief, variedade_contexto
+        )
+        slides = self._construir_slides(pauta, copy, decisao, tipo)
         dimensoes = _DIMS.get(tipo, [1080, 1350])
         spec = DesignSpec(formato=tipo, dimensoes=dimensoes, slides=slides)  # type: ignore[arg-type]
         path = self._salvar_spec(spec, pauta.get("titulo", tipo))
@@ -84,11 +92,10 @@ class Agent(BaseAgent):
                 "formato": tipo,
                 "slides_planejados": len(slides),
                 "template_capa": slides[0].template if slides else "",
+                "rota": decisao.get("rota", "tipografico"),
             },
             sucesso=True,
         )
-
-    # ── helpers ─────────────────────────────────────────────────────────────────
 
     def _listar_recursos(self, folder: str) -> list[str]:
         try:
@@ -103,35 +110,46 @@ class Agent(BaseAgent):
         pauta: dict[str, Any],
         copy: dict[str, Any],
         fotos: list[str],
+        brief: ReferenceBrief | None = None,
+        variedade_contexto: list[str] | None = None,
     ) -> dict[str, Any]:
         paleta = knowledge_pack.get("paleta") or knowledge_pack.get("kit", "")
         tipo = pauta.get("tipo", "carrossel")
         titulo = pauta.get("titulo", "")
         legenda_preview = str(copy.get("legenda", ""))[:120]
 
-        templates = ["capa-carrossel (sem foto — ideal para conteúdo conceitual/abstrato)"]
+        templates = ["capa-carrossel (sem foto - conteudo conceitual/abstrato)"]
         if fotos:
             templates += [
-                "capa-foto-bg (foto de Bruno como fundo desfocado — histórias pessoais)",
-                "capa-foto-split (foto à direita, texto à esquerda — credibilidade)",
-                "capa-foto-topo (foto no topo, headline embaixo — depoimentos/resultados)",
+                "capa-foto-bg (foto de Bruno como fundo desfocado - historias pessoais)",
+                "capa-foto-split (foto a direita, texto a esquerda - credibilidade)",
+                "capa-foto-topo (foto no topo, headline embaixo - depoimentos/resultados)",
             ]
 
-        fotos_txt = "\n".join(f"  - {f}" for f in fotos) if fotos else "  (nenhuma disponível)"
+        fotos_txt = "\n".join(f"  - {f}" for f in fotos) if fotos else "  (nenhuma disponivel)"
+        brief_txt = brief_para_prompt(brief) if brief is not None else ""
+        var_txt = ", ".join(variedade_contexto or []) or "nenhum"
 
         prompt = (
-            "Você é o Designer do Time de Marketing.\n"
-            "Aplique as skills `selecao-template-por-conteudo` e `composicao-visual-social-2026`.\n\n"
-            f"PALETA: {paleta}\nFORMATO: {tipo}\nTÍTULO: {titulo}\nLEGENDA: {legenda_preview}\n\n"
-            "TEMPLATES DISPONÍVEIS:\n" + "\n".join(f"  - {t}" for t in templates) + "\n\n"
+            "Voce e o Designer do Time de Marketing.\n"
+            "Aplique `selecao-template-por-conteudo` e `composicao-visual-social-2026`.\n\n"
+            f"PALETA: {paleta}\nFORMATO: {tipo}\nTITULO: {titulo}\nLEGENDA: {legenda_preview}\n\n"
+            "TEMPLATES DISPONIVEIS:\n" + "\n".join(f"  - {t}" for t in templates) + "\n\n"
             f"FOTOS DO BRUNO:\n{fotos_txt}\n\n"
-            "Prefira templates com foto para posts de história pessoal, credibilidade ou resultados.\n"
-            "Use capa-carrossel para conteúdo conceitual/técnico.\n\n"
+            f"{brief_txt}\n\n"
+            f"ESTILOS JA USADOS NESTA LEVA: {var_txt}. "
+            "Prefira VARIAR (nao repita o mesmo estilo).\n\n"
+            "Escolha a ROTA: 'tipografico' (Paper puro), "
+            "'foto-local' (usar uma FotoBruno do brief).\n"
+            "Use foto para historias pessoais/credibilidade/resultados; "
+            "tipografico para conceitual.\n\n"
             "Devolva APENAS YAML:\n"
+            "rota: <tipografico|foto-local>\n"
             "template_escolhido: <nome-exato>\n"
             "foto_escolhida: <nome-do-arquivo-ou-vazio>\n"
+            "soul_id_prompt: null\n"
+            "referencias_usadas: [<arquivos-de-referencia-que-inspiraram-ou-vazio>]\n"
             "rationale: <motivo>\n"
-            "soul_id_prompt: <prompt-higgsfield-ou-null>\n"
         )
 
         resposta = self._llm.select(complexity="low").complete(prompt).texto  # type: ignore[union-attr]
@@ -150,12 +168,19 @@ class Agent(BaseAgent):
             template = "capa-carrossel"
         if foto not in fotos:
             foto = ""
+        rota = str(dados.get("rota", "tipografico")).strip() or "tipografico"
+        if rota not in {"tipografico", "foto-local"}:
+            rota = "tipografico"
+        refs = dados.get("referencias_usadas") or []
+        refs = [str(r) for r in refs] if isinstance(refs, list) else []
 
         return {
+            "rota": rota,
             "template_escolhido": template,
             "foto_escolhida": foto,
             "rationale": str(dados.get("rationale", "")),
             "soul_id_prompt": dados.get("soul_id_prompt") or None,
+            "referencias_usadas": refs,
         }
 
     def _construir_slides(
@@ -163,12 +188,11 @@ class Agent(BaseAgent):
         pauta: dict[str, Any],
         copy: dict[str, Any],
         decisao: dict[str, Any],
-        fotos: list[str],
         tipo: str,
     ) -> list[SlideSpec]:
         titulo = pauta.get("titulo", "")
         pilar = str(pauta.get("pilar", ""))
-        tag = f"{pilar} · mktmagneto.ia" if pilar else "mktmagneto.ia"
+        tag = f"{pilar} - mktmagneto.ia" if pilar else "mktmagneto.ia"
         linha1, destaque = _split_headline(titulo)
 
         capa = SlideSpec(
@@ -177,6 +201,7 @@ class Agent(BaseAgent):
             conteudo={"headline_linha1": linha1, "headline_destaque": destaque, "tag": tag},
             foto=decisao["foto_escolhida"] or None,
             soul_id_prompt=decisao.get("soul_id_prompt"),
+            referencias_usadas=decisao.get("referencias_usadas", []),
         )
         slides = [capa]
 
@@ -203,9 +228,9 @@ class Agent(BaseAgent):
             "Gere uma landing page HTML completa e responsiva.\n"
             f"MARCA: {knowledge_pack.get('briefing', '')}\n"
             f"PALETA: {knowledge_pack.get('paleta', '')}\n"
-            f"TÍTULO: {pauta.get('titulo', '')}\n"
+            f"TITULO: {pauta.get('titulo', '')}\n"
             f"COPY: {copy.get('legenda', '')}\n\n"
-            "Devolva APENAS o HTML completo (<!DOCTYPE html> até </html>)."
+            "Devolva APENAS o HTML completo (<!DOCTYPE html> ate </html>)."
         )
         return self._llm.select(complexity="high").complete(prompt).texto  # type: ignore[union-attr]
 
