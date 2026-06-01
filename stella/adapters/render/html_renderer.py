@@ -41,6 +41,7 @@ class HtmlRenderer:
     browser_path: str | None = None
     runner: Runner = field(default=_default_runner)
     timeout_s: int = 60
+    virtual_time_budget_ms: int = 25000
 
     def render(self, html: str, *, width: int = 1080, height: int = 1350) -> bytes:
         browser = self.browser_path or _achar_browser()
@@ -62,7 +63,7 @@ class HtmlRenderer:
                 "--allow-file-access-from-files",
                 "--force-device-scale-factor=1",
                 f"--window-size={width},{height}",
-                "--virtual-time-budget=12000",
+                f"--virtual-time-budget={self.virtual_time_budget_ms}",
                 f"--screenshot={out}",
                 "file://" + page.replace("\\", "/"),
             ]

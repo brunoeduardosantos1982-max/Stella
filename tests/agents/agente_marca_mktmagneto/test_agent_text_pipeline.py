@@ -4,12 +4,15 @@ v2: delega copy ao especialista `copywriter` e visual ao `designer`.
 LLM só é chamado para: Planejador + AutoQA (aprova_copy + aprova_visual).
 """
 
+import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.llm.router import LLMRouter
+from stella.adapters.render.html_renderer import HtmlRenderer
 from stella.agents.agente_marca_mktmagneto.agent import Agent
+from stella.agents.designer.spec import DesignSpec, SlideSpec
 from stella.framework.agent import AgentOutput
 from stella.framework.testing.fakes import (
     FakeCopywriter,
@@ -65,6 +68,18 @@ def _coord_ok_responses() -> list[str]:
     ]
 
 
+def _fake_renderer() -> HtmlRenderer:
+    """Renderer com runner fake — grava PNG sintético, nunca abre Chrome real."""
+
+    def run(args: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        out = next(a.split("=", 1)[1] for a in args if a.startswith("--screenshot="))
+        with open(out, "wb") as f:
+            f.write(b"PNG")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    return HtmlRenderer(browser_path="chrome", runner=run)
+
+
 def _vault_pronto() -> FakeVault:
     vault = FakeVault(
         {
@@ -80,6 +95,21 @@ def _vault_pronto() -> FakeVault:
         "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html",
         "<html>{{TITULO}}</html>",
         {},
+    )
+    # ResolvedorTipografico lê templates via read_binary (store separado no FakeVault)
+    vault.write_binary(
+        "C04 Claude Obsidian/outputs/mktmagneto-ia/templates/capa-carrossel.html",
+        b"<html>{{HEADLINE_LINHA1}}</html>",
+    )
+    # Spec que o FakeDesigner referencia (pipeline de render unificado a lê)
+    spec = DesignSpec(
+        formato="carrossel",
+        dimensoes=[1080, 1350],
+        slides=[SlideSpec(index=0, template="capa-carrossel", conteudo={"headline_linha1": "H"})],
+    )
+    vault.write_binary(
+        "C04 Claude Obsidian/Stella-publicacao/pendentes/fake-spec.json",
+        spec.to_json().encode("utf-8"),
     )
     return vault
 
@@ -109,6 +139,7 @@ def _agent(llm: FakeLLM, vault: FakeVault | None = None, registry: Any = None) -
         or FakeRegistry({"copywriter": FakeCopywriter(), "designer": FakeDesigner()}),
     )
     agent._now = lambda: _AGORA_FIXO  # type: ignore[method-assign]
+    agent._renderer = lambda: _fake_renderer()  # type: ignore[method-assign]
     return agent
 
 
@@ -187,7 +218,7 @@ def test_nota_da_fila_tem_frontmatter_correto() -> None:
     for path in fila:
         nota = vault.read_note(path)
         assert nota.frontmatter["marca"] == "mktmagneto"
-        assert nota.frontmatter["status"] == "pending_render"
+        assert nota.frontmatter["status"] == "rascunho"
         assert nota.frontmatter["plataformas"] == ["instagram"]
 
 

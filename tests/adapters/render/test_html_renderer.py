@@ -28,6 +28,12 @@ def test_render_devolve_bytes_do_png() -> None:
     assert r.render("<h1>oi</h1>") == b"ABC123"
 
 
+def test_budget_default_25s() -> None:
+    runner = _runner()
+    HtmlRenderer(browser_path="chrome", runner=runner).render("<h1>x</h1>")
+    assert "--virtual-time-budget=25000" in runner.cap["args"]  # type: ignore[attr-defined]
+
+
 def test_render_monta_comando_headless_com_dimensoes() -> None:
     runner = _runner()
     HtmlRenderer(browser_path="chrome", runner=runner).render("<h1>x</h1>", width=1080, height=1350)
