@@ -114,7 +114,23 @@ class Agent(BaseAgent):
         fotos: list[str],
         brief: ReferenceBrief | None = None,
         variedade_contexto: list[str] | None = None,
+        atribuicao: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        if atribuicao:
+            rota_atb = str(atribuicao.get("rota", "")).strip()
+            tema_atb = str(atribuicao.get("tema") or "").strip() or None
+            if rota_atb == "foto-hero" and tema_atb in TEMAS:
+                return {
+                    "rota": "foto-hero",
+                    "template_escolhido": "foto-hero",
+                    "foto_escolhida": "",
+                    "soul_id_prompt": None,
+                    "referencias_usadas": [],
+                    "rationale": f"atribuido pelo diretor: {tema_atb}",
+                    "tema": tema_atb,
+                    "foto_hero": _montar_foto_hero(pauta, copy, atribuicao),
+                }
+
         paleta = knowledge_pack.get("paleta") or knowledge_pack.get("kit", "")
         tipo = pauta.get("tipo", "carrossel")
         titulo = pauta.get("titulo", "")
@@ -308,6 +324,22 @@ def _split_headline(titulo: str) -> tuple[str, str]:
         return " ".join(words[:-1]), words[-1]
     cut = max(1, round(len(words) * 0.55))
     return " ".join(words[:cut]), " ".join(words[cut:])
+
+
+def _montar_foto_hero(
+    pauta: dict[str, Any], copy: dict[str, Any], atribuicao: dict[str, Any]
+) -> dict[str, Any]:
+    titulo = str(pauta.get("titulo", ""))
+    slides = [str(s) for s in copy.get("slides", [])]
+    anotacoes = [s[:40] for s in slides[:2]]
+    return {
+        "headline": titulo.upper()[:48],
+        "sublabel": "e a verdade que ninguem te conta",
+        "label_topo": "",
+        "anotacoes": anotacoes,
+        "logos": [],
+        "counter": "",
+    }
 
 
 def _limpar_texto_slide(texto: str) -> str:
