@@ -84,3 +84,12 @@ def test_ferramentas_html_inclui_conteudo_e_imagem() -> None:
     assert "5 MITOS" in html
     assert "data:image/png;base64,FERRAMENTAS" in html
     assert "PARE DE ACREDITAR" in html
+
+
+def test_automatizacao_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("automatizacao").html(_content(), "data:image/png;base64,AUTO")
+    assert get_tema("automatizacao").nome == "automatizacao"
+    assert get_tema("automatizacao").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,AUTO" in html
+    assert "ningu" in html

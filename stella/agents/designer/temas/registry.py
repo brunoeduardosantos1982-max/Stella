@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from stella.agents.designer.temas.automatizacao import AutomatizacaoRecipe
 from stella.agents.designer.temas.autoridade import AutoridadeRecipe
 from stella.agents.designer.temas.base import TemaRecipe
 from stella.agents.designer.temas.dicas import DicasRecipe
@@ -12,6 +13,7 @@ from stella.agents.designer.temas.segredos import SegredosRecipe
 from stella.agents.designer.temas.tech import TechRecipe
 
 TEMAS: dict[str, TemaRecipe] = {
+    AutomatizacaoRecipe.nome: AutomatizacaoRecipe(),
     AutoridadeRecipe.nome: AutoridadeRecipe(),
     DicasRecipe.nome: DicasRecipe(),
     FerramentasRecipe.nome: FerramentasRecipe(),
