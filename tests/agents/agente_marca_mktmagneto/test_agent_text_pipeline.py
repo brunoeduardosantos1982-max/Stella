@@ -34,6 +34,22 @@ pautas:
 
 _QA_OK = "veredicto: aprovado\nmotivo: ok"
 _QA_REFAZER = "veredicto: refazer\nmotivo: hook fraco"
+_BRIEFING_YAML = "angulo: a\ngancho_padrao_id: mito-verdade\ncta_unico: Comenta AGENTE\n"
+
+
+def _coord_ok_responses() -> list[str]:
+    return [
+        _PLAN_YAML,
+        _BRIEFING_YAML,
+        _QA_OK,
+        _QA_OK,
+        _BRIEFING_YAML,
+        _QA_OK,
+        _QA_OK,
+        _BRIEFING_YAML,
+        _QA_OK,
+        _QA_OK,
+    ]
 
 
 def _vault_pronto() -> FakeVault:
@@ -111,7 +127,7 @@ def test_sem_vault_ou_llm_ou_registry_falha_graciosamente() -> None:
 def test_pipeline_gera_3_rascunhos_na_fila() -> None:
     """Coordenador delega copy + visual e grava 3 notas .md na fila."""
     # plan(1) + 3×aprova_copy(1) + 3×aprova_visual(1) = 7
-    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    llm = FakeLLM(responses=_coord_ok_responses())
     vault = _vault_pronto()
     agent = _agent(llm, vault=vault)
     out = agent.execute({})
@@ -123,7 +139,7 @@ def test_pipeline_gera_3_rascunhos_na_fila() -> None:
 
 
 def test_pipeline_grava_design_spec_no_frontmatter() -> None:
-    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    llm = FakeLLM(responses=_coord_ok_responses())
     vault = _vault_pronto()
     agent = _agent(llm, vault=vault)
     agent.execute({})
@@ -137,7 +153,7 @@ def test_pipeline_grava_design_spec_no_frontmatter() -> None:
 
 
 def test_pipeline_atualiza_calendario() -> None:
-    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    llm = FakeLLM(responses=_coord_ok_responses())
     vault = _vault_pronto()
     agent = _agent(llm, vault=vault)
     agent.execute({})
@@ -149,7 +165,7 @@ def test_pipeline_atualiza_calendario() -> None:
 
 
 def test_nota_da_fila_tem_frontmatter_correto() -> None:
-    llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    llm = FakeLLM(responses=_coord_ok_responses())
     vault = _vault_pronto()
     agent = _agent(llm, vault=vault)
     agent.execute({})
@@ -172,11 +188,14 @@ def test_autoqa_copy_refaz_e_aprova_na_segunda() -> None:
     llm = FakeLLM(
         responses=[
             _PLAN_YAML,
+            _BRIEFING_YAML,
             _QA_REFAZER,  # post 1 copy tentativa 1
             _QA_OK,  # post 1 copy tentativa 2
             _QA_OK,  # post 1 visual
+            _BRIEFING_YAML,
             _QA_OK,  # post 2 copy
             _QA_OK,  # post 2 visual
+            _BRIEFING_YAML,
             _QA_OK,  # post 3 copy
             _QA_OK,  # post 3 visual
         ]
@@ -218,10 +237,13 @@ def test_designer_falha_num_post_nao_derruba_os_outros() -> None:
     llm = FakeLLM(
         responses=[
             _PLAN_YAML,
+            _BRIEFING_YAML,
             _QA_OK,
             _QA_OK,
+            _BRIEFING_YAML,
+            _QA_OK,
+            _BRIEFING_YAML,
             _QA_OK,  # qa_copy posts 1, 2, 3
-            _QA_OK,
             _QA_OK,  # qa_visual posts 1 e 3 (post2 designer falhou)
         ]
     )
