@@ -48,3 +48,12 @@ def test_impactante_html_inclui_conteudo_e_imagem() -> None:
     assert "5 MITOS" in html
     assert "data:image/png;base64,IMPACTANTE" in html
     assert "ningu" in html
+
+
+def test_segredos_html_inclui_conteudo_sem_imagem() -> None:
+    html = get_tema("segredos").html(_content(), "data:image/png;base64,SEGREDOS")
+    assert get_tema("segredos").nome == "segredos"
+    assert get_tema("segredos").usa_soul is False
+    assert "5 MITOS" in html
+    assert "conversar com IA" in html
+    assert "data:image/png;base64,SEGREDOS" not in html
