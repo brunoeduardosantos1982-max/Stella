@@ -30,3 +30,75 @@ def test_mitos_html_inclui_conteudo_e_imagem() -> None:
     assert "conversar com IA" in html
     assert "PARE DE ACREDITAR" in html
     assert "svg" in html.lower()
+
+
+def test_tech_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("tech").html(_content(), "data:image/png;base64,TECH")
+    assert get_tema("tech").nome == "tech"
+    assert get_tema("tech").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,TECH" in html
+    assert "conversar com IA" in html
+
+
+def test_impactante_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("impactante").html(_content(), "data:image/png;base64,IMPACTANTE")
+    assert get_tema("impactante").nome == "impactante"
+    assert get_tema("impactante").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,IMPACTANTE" in html
+    assert "ningu" in html
+
+
+def test_segredos_html_inclui_conteudo_sem_imagem() -> None:
+    html = get_tema("segredos").html(_content(), "data:image/png;base64,SEGREDOS")
+    assert get_tema("segredos").nome == "segredos"
+    assert get_tema("segredos").usa_soul is False
+    assert "5 MITOS" in html
+    assert "conversar com IA" in html
+    assert "data:image/png;base64,SEGREDOS" not in html
+
+
+def test_autoridade_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("autoridade").html(_content(), "data:image/png;base64,AUTORIDADE")
+    assert get_tema("autoridade").nome == "autoridade"
+    assert get_tema("autoridade").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,AUTORIDADE" in html
+    assert "PARE DE ACREDITAR" in html
+
+
+def test_dicas_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("dicas").html(_content(), "data:image/png;base64,DICAS")
+    assert get_tema("dicas").nome == "dicas"
+    assert get_tema("dicas").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,DICAS" in html
+    assert "ningu" in html
+
+
+def test_ferramentas_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("ferramentas").html(_content(), "data:image/png;base64,FERRAMENTAS")
+    assert get_tema("ferramentas").nome == "ferramentas"
+    assert get_tema("ferramentas").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,FERRAMENTAS" in html
+    assert "PARE DE ACREDITAR" in html
+
+
+def test_automatizacao_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("automatizacao").html(_content(), "data:image/png;base64,AUTO")
+    assert get_tema("automatizacao").nome == "automatizacao"
+    assert get_tema("automatizacao").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,AUTO" in html
+    assert "ningu" in html
+
+
+def test_conceito_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("conceito").html(_content(), "data:image/png;base64,CONCEITO")
+    assert get_tema("conceito").nome == "conceito"
+    assert get_tema("conceito").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,CONCEITO" in html
+    assert "ningu" in html
