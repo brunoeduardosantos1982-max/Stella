@@ -18,6 +18,7 @@ from stella.agents.copywriter.briefing import MontadorBriefing
 from stella.agents.copywriter.ganchos import GanchoCatalog
 from stella.agents.designer.compositor import HtmlCompositor
 from stella.agents.designer.resolvedor_foto_hero import ResolvedorFotoHero
+from stella.agents.designer.resolvedor_tipografico import ResolvedorTipografico
 from stella.agents.designer.spec import DesignSpec
 from stella.agents.designer.temas.registry import TEMAS as TEMAS_FOTO_HERO
 from stella.domain.post import PostTexto
@@ -62,6 +63,10 @@ class Agent(BaseAgent):
 
     def _now(self) -> datetime:
         return datetime.now(_BRT)
+
+    def _renderer(self) -> HtmlRenderer:
+        """Fábrica do renderer (injetável em testes p/ evitar Chrome real)."""
+        return HtmlRenderer(browser_path=StellaConfig().render_browser_path or None)
 
     def _proximas_3_datas(self, agora: datetime) -> list[datetime]:
         candidatos: list[datetime] = []
@@ -247,26 +252,38 @@ class Agent(BaseAgent):
             higgs_mcp = next(
                 (m for m in self._mcps if getattr(m, "category", None) == "image"), None
             )
-            if design_spec_path and higgs_mcp is not None:
+            if design_spec_path:
                 try:
                     spec = DesignSpec.from_json(
                         self._vault.read_binary(design_spec_path).decode("utf-8")
                     )
-                    higgs_warnings = ResolvedorImagens(
-                        higgs=cast(HiggsFieldClient, higgs_mcp), vault=self._vault
-                    ).resolver(spec, post_id=post_id)
+                    rend = self._renderer()
+                    # Fotos do Bruno (Soul) p/ slides foto-higgsfield legados
+                    if higgs_mcp is not None:
+                        post_warnings.extend(
+                            ResolvedorImagens(
+                                higgs=cast(HiggsFieldClient, higgs_mcp), vault=self._vault
+                            ).resolver(spec, post_id=post_id)
+                        )
                     if any(s.foto_hero for s in spec.slides):
-                        rend = HtmlRenderer(browser_path=StellaConfig().render_browser_path or None)
-                        comp = HtmlCompositor(renderer=rend, vault=self._vault)
-                        foto_hero_warnings = ResolvedorFotoHero(
-                            higgs=cast(HiggsFieldClient, higgs_mcp), compositor=comp
-                        ).resolver(spec, post_id=post_id)
-                        post_warnings.extend(foto_hero_warnings)
+                        if higgs_mcp is not None:
+                            comp = HtmlCompositor(renderer=rend, vault=self._vault)
+                            post_warnings.extend(
+                                ResolvedorFotoHero(
+                                    higgs=cast(HiggsFieldClient, higgs_mcp), compositor=comp
+                                ).resolver(spec, post_id=post_id)
+                            )
+                    else:
+                        # Render tipográfico unificado (template HTML → PNG na fila)
+                        post_warnings.extend(
+                            ResolvedorTipografico(renderer=rend, vault=self._vault).resolver(
+                                spec, post_id=post_id
+                            )
+                        )
                     self._vault.write_binary(design_spec_path, spec.to_json().encode("utf-8"))
                     imagens = [s.foto for s in spec.slides if s.foto]
-                    post_warnings.extend(higgs_warnings)
-                except Exception as e:  # noqa: BLE001 — resolução nunca derruba o post
-                    post_warnings.append(f"resolver imagens falhou: {e}")
+                except Exception as e:  # noqa: BLE001 — render nunca derruba o post
+                    post_warnings.append(f"render falhou: {e}")
 
             # Gravar na fila
             post = PostTexto(
@@ -277,7 +294,7 @@ class Agent(BaseAgent):
                 slides=copy.get("slides", []),
             )
             try:
-                status = "needs_review" if post_warnings else "pending_render"
+                status = "needs_review" if post_warnings else "rascunho"
                 escritor.escrever(
                     post,
                     post_id=post_id,

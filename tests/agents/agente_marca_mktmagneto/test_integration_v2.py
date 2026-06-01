@@ -4,12 +4,14 @@ Testa o coordenador + copywriter + designer + AutoQA + EscritorFila
 wired together com Fakes, sem depender de LLM ou vault real.
 """
 
+import subprocess
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.llm.router import LLMRouter
 from stella.adapters.postiz.fake import FakePostiz
+from stella.adapters.render.html_renderer import HtmlRenderer
 from stella.agents.agente_marca_mktmagneto.agent import Agent as Coordenador
 from stella.agents.agente_publicador.agent import Agent as Publicador
 from stella.agents.copywriter.agent import Agent as Copywriter
@@ -104,6 +106,18 @@ class _FakeRouter:
         return self._llm
 
 
+def _fake_renderer() -> HtmlRenderer:
+    """Renderer com runner fake — grava PNG sintético, nunca abre Chrome real."""
+
+    def run(args: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        out = next(a.split("=", 1)[1] for a in args if a.startswith("--screenshot="))
+        with open(out, "wb") as f:
+            f.write(b"PNG")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    return HtmlRenderer(browser_path="chrome", runner=run)
+
+
 def _vault() -> FakeVault:
     vault = FakeVault(
         {
@@ -119,6 +133,8 @@ def _vault() -> FakeVault:
         }
     )
     vault.write_note(_TEMPLATE_PATH, "<html><body>{{TITULO}} {{SLIDE_1}}</body></html>", {})
+    # ResolvedorTipografico lê templates via read_binary (store separado no FakeVault)
+    vault.write_binary(_TEMPLATE_PATH, b"<html><body>{{HEADLINE_LINHA1}} {{TEXTO}}</body></html>")
     return vault
 
 
@@ -156,6 +172,7 @@ def _wired_agent(
         registry=_InlineRegistry(),
     )
     coord._now = lambda: _AGORA_FIXO  # type: ignore[method-assign]
+    coord._renderer = lambda: _fake_renderer()  # type: ignore[method-assign]
     return coord
 
 
@@ -184,7 +201,7 @@ def test_pipeline_completo_gera_3_rascunhos() -> None:
     for path in fila:
         nota = vault.read_note(path)
         assert "design_spec" in nota.frontmatter
-        assert nota.frontmatter["status"] == "pending_render"
+        assert nota.frontmatter["status"] == "rascunho"
 
 
 def test_legenda_copywriter_chega_na_nota_da_fila() -> None:
@@ -340,6 +357,10 @@ def test_pipeline_designspec_render_simulado_publicador_publica_carrossel() -> N
             "imagens": [f"{post_id}/slide-00.png", f"{post_id}/slide-01.png"],
         },
     )
+    # Isola a publicação ao post-alvo: os demais (já renderizados inline → rascunho)
+    # saem do conjunto publicável p/ a asserção de upload ficar determinística.
+    for outro in fila[1:]:
+        vault.update_frontmatter(outro, {"status": "pending_render"})
 
     postiz = FakePostiz()
     pub = Publicador(vault=vault, postiz_client=postiz)
