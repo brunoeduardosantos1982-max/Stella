@@ -66,3 +66,12 @@ def test_autoridade_html_inclui_conteudo_e_imagem() -> None:
     assert "5 MITOS" in html
     assert "data:image/png;base64,AUTORIDADE" in html
     assert "PARE DE ACREDITAR" in html
+
+
+def test_dicas_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("dicas").html(_content(), "data:image/png;base64,DICAS")
+    assert get_tema("dicas").nome == "dicas"
+    assert get_tema("dicas").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,DICAS" in html
+    assert "ningu" in html
