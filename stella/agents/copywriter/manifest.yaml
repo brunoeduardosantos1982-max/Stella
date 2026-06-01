@@ -3,7 +3,7 @@ tipo: especialista
 setor: marketing
 descricao: "Produz copy completa (legenda + texto de slides + hashtags + rationale) para qualquer marca a partir de um knowledge_pack e uma pauta."
 execucao: in_process
-modelo_minimo: sonnet
+modelo_minimo: opus
 
 inputs_obrigatorios:
   - knowledge_pack

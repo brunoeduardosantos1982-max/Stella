@@ -65,6 +65,22 @@ rationale: "Template ideal para carrossel denso"
 
 _QA_OK = "veredicto: aprovado\nmotivo: ok"
 _QA_REFAZER = "veredicto: refazer\nmotivo: legenda muito longa, encurtar"
+_BRIEFING_YAML = "angulo: a\ngancho_padrao_id: mito-verdade\ncta_unico: Comenta AGENTE\n"
+
+
+def _coord_ok_responses() -> list[str]:
+    return [
+        _PLAN_YAML,
+        _BRIEFING_YAML,
+        _QA_OK,
+        _QA_OK,
+        _BRIEFING_YAML,
+        _QA_OK,
+        _QA_OK,
+        _BRIEFING_YAML,
+        _QA_OK,
+        _QA_OK,
+    ]
 
 
 class _FakeRouter:
@@ -136,7 +152,7 @@ def _wired_agent(
 def test_pipeline_completo_gera_3_rascunhos() -> None:
     """Coordenador → Copywriter → Designer → AutoQA → EscritorFila: 3 notas na fila."""
     # Coordenador LLM: plan(1) + 3×qa_copy(1) + 3×qa_visual(1) = 7
-    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    coord_llm = FakeLLM(responses=_coord_ok_responses())
     # Copywriter LLM: 3 chamadas (1 por pauta)
     copy_llm = FakeLLM(responses=[_COPY_YAML, _COPY_YAML, _COPY_YAML])
     # Designer LLM: 3 chamadas (1 por pauta)
@@ -160,7 +176,7 @@ def test_pipeline_completo_gera_3_rascunhos() -> None:
 
 def test_legenda_copywriter_chega_na_nota_da_fila() -> None:
     """A legenda gerada pelo copywriter aparece no corpo da nota .md gravada."""
-    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    coord_llm = FakeLLM(responses=_coord_ok_responses())
     copy_llm = FakeLLM(responses=[_COPY_YAML, _COPY_YAML, _COPY_YAML])
     design_llm = FakeLLM(responses=[_DESIGN_YAML, _DESIGN_YAML, _DESIGN_YAML])
 
@@ -179,11 +195,14 @@ def test_qa_warn_only_nao_bloqueia_post() -> None:
     coord_llm = FakeLLM(
         responses=[
             _PLAN_YAML,
+            _BRIEFING_YAML,
             _QA_REFAZER,  # post 1 copy t1 — reprovado
             _QA_REFAZER,  # post 1 copy t2 — ainda reprovado → aviso
             _QA_OK,  # post 1 visual
+            _BRIEFING_YAML,
             _QA_OK,
             _QA_OK,  # post 2 copy + visual
+            _BRIEFING_YAML,
             _QA_OK,
             _QA_OK,  # post 3 copy + visual
         ]
@@ -207,7 +226,7 @@ def test_qa_warn_only_nao_bloqueia_post() -> None:
 
 def test_pautas_nos_metadados_do_resultado() -> None:
     """Resultado inclui pautas com pilar e titulo corretos."""
-    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    coord_llm = FakeLLM(responses=_coord_ok_responses())
     copy_llm = FakeLLM(responses=[_COPY_YAML, _COPY_YAML, _COPY_YAML])
     design_llm = FakeLLM(responses=[_DESIGN_YAML, _DESIGN_YAML, _DESIGN_YAML])
 
@@ -222,7 +241,7 @@ def test_pautas_nos_metadados_do_resultado() -> None:
 
 def test_calendario_atualizado_apos_pipeline() -> None:
     """Calendário .md é criado/atualizado com as 3 pautas programadas."""
-    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    coord_llm = FakeLLM(responses=_coord_ok_responses())
     copy_llm = FakeLLM(responses=[_COPY_YAML, _COPY_YAML, _COPY_YAML])
     design_llm = FakeLLM(responses=[_DESIGN_YAML, _DESIGN_YAML, _DESIGN_YAML])
 
@@ -238,7 +257,7 @@ def test_calendario_atualizado_apos_pipeline() -> None:
 
 
 def test_coordenador_passa_variedade_contexto_acumulando_rotas() -> None:
-    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    coord_llm = FakeLLM(responses=_coord_ok_responses())
     designer = FakeDesigner(
         outputs=[
             {
@@ -275,7 +294,7 @@ def test_coordenador_passa_variedade_contexto_acumulando_rotas() -> None:
 
 def test_pipeline_designspec_render_simulado_publicador_publica_carrossel() -> None:
     """E2E local: marketing gera fila, render simulado preenche imagens, publicador agenda."""
-    coord_llm = FakeLLM(responses=[_PLAN_YAML, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK, _QA_OK])
+    coord_llm = FakeLLM(responses=_coord_ok_responses())
     copy_llm = FakeLLM(responses=[_COPY_YAML, _COPY_YAML, _COPY_YAML])
     design_llm = FakeLLM(responses=[_DESIGN_YAML, _DESIGN_YAML, _DESIGN_YAML])
 

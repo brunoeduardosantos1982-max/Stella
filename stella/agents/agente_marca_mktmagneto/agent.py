@@ -7,12 +7,15 @@ AutoQA e gravação na fila do publicador.
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, cast
 
 from stella.adapters.higgsfield.base import HiggsFieldClient
 from stella.adapters.higgsfield.resolvedor import ResolvedorImagens
 from stella.adapters.render.html_renderer import HtmlRenderer
+from stella.agents.copywriter.briefing import MontadorBriefing
+from stella.agents.copywriter.ganchos import GanchoCatalog
 from stella.agents.designer.compositor import HtmlCompositor
 from stella.agents.designer.resolvedor_foto_hero import ResolvedorFotoHero
 from stella.agents.designer.spec import DesignSpec
@@ -155,10 +158,15 @@ class Agent(BaseAgent):
                 docs = self._rag.search(pauta.titulo)
                 referencia_txt = "\n\n".join(str(d.get("texto", "")) for d in docs)
             knowledge_pauta = {**knowledge, "referencia": referencia_txt}
+            briefing = MontadorBriefing(
+                llm=self._llm.select(complexity="high"), ganchos=GanchoCatalog()
+            ).montar(pauta=pauta_dict, knowledge_pauta=knowledge_pauta)
+            briefing_d = asdict(briefing)
 
             # Copy — tentativa 1
             copy_out = self.delegate_to(
-                "copywriter", {"knowledge_pack": knowledge_pauta, "pauta": pauta_dict}
+                "copywriter",
+                {"knowledge_pack": knowledge_pauta, "pauta": pauta_dict, "briefing": briefing_d},
             )
             if not copy_out.sucesso:
                 erros.append(f"Post {i + 1}: copywriter falhou — {copy_out.mensagens}")
@@ -173,6 +181,7 @@ class Agent(BaseAgent):
                     {
                         "knowledge_pack": knowledge_pauta,
                         "pauta": pauta_dict,
+                        "briefing": briefing_d,
                         "feedback_anterior": feedback_c,
                         "output_anterior": copy,
                     },

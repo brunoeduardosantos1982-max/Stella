@@ -42,6 +42,7 @@ class Agent(BaseAgent):
             pauta,
             input.get("feedback_anterior"),
             input.get("output_anterior"),
+            input.get("briefing"),
         )
         resposta = self._llm.select(complexity="high").complete(prompt).texto
 
@@ -76,6 +77,7 @@ class Agent(BaseAgent):
         pauta: dict[str, Any],
         feedback_anterior: str | None,
         output_anterior: dict[str, Any] | None,
+        briefing_copy: dict[str, Any] | None = None,
     ) -> str:
         # Suporte a dois formatos de knowledge_pack:
         # 1. Estruturado (testes unitários): {voz, cta_padrao, hashtags_base}
@@ -105,6 +107,10 @@ class Agent(BaseAgent):
                 "",
             ]
 
+        referencia = knowledge_pack.get("referencia", "")
+        if referencia:
+            partes += [f"REFERENCIA/GROUNDING (use o concreto daqui):\n{referencia}", ""]
+
         partes += [
             f"PAUTA: pilar {pilar} — {titulo}",
             f"FORMATO: {tipo}, {n_slides} slides",
@@ -119,6 +125,20 @@ class Agent(BaseAgent):
                 "OUTPUT ANTERIOR:",
                 output_ant_str,
                 "Incorpore o feedback acima na nova versão.",
+            ]
+
+        if briefing_copy:
+            partes += [
+                "",
+                "BRIEFING DO DIRETOR (execute exatamente):",
+                f"- Angulo: {briefing_copy.get('angulo', '')}",
+                f"- Gancho ({briefing_copy.get('gancho_padrao_id', '')}): "
+                f"{briefing_copy.get('gancho_instrucao', '')}",
+                f"- NOMEIE obrigatoriamente: {briefing_copy.get('pontos_chave', [])}",
+                f"- CTA UNICO (use 1 so): {briefing_copy.get('cta_unico', '')}",
+                f"- Hashtags sugeridas: {briefing_copy.get('hashtags_sugeridas', [])}",
+                "Regras: nomeie o concreto dos pontos-chave; gancho que para o scroll; 1 CTA so.",
+                "",
             ]
 
         partes += [

@@ -114,12 +114,24 @@ class AutoQA:
         referencia = knowledge_pack.get("referencia", "")
         if referencia:
             contexto += f"REFERENCIA (principios/exemplos curados):\n{referencia}\n\n"
+        checklist = (
+            "CHECKLIST DE CRESCIMENTO (reprove se falhar):\n"
+            "- GANCHO para o scroll (provoca, choca OU promete resultado especifico)?\n"
+            "- ESPECIFICIDADE: nomeia o concreto (ferramentas/dados/passos)? Nada de vago/generico.\n"
+            "- 1 CTA so (reprove se houver 2 CTAs)?\n"
+            "- SAVE-ABILITY: vale salvar/compartilhar (valor pratico)?\n"
+            "- Coerencia legenda <-> hashtags <-> referencia?\n"
+            "Reprove copy generica (ex.: tese repetida sem nomear nada concreto).\n\n"
+        )
         return (
-            "Aplique a skill `revisao-padroes-marca`.\n\n" + contexto + f"LEGENDA:\n{legenda}\n\n"
-            f"HASHTAGS ({len(hashtags)}): {hashtags}\n\n"
-            "Devolva APENAS YAML:\n"
-            "veredicto: aprovado | refazer\n"
-            "motivo: <motivo objetivo>\n"
+            "Aplique a skill `revisao-padroes-marca`.\n\n"
+            + contexto
+            + f"LEGENDA:\n{legenda}\n\n"
+            + f"HASHTAGS ({len(hashtags)}): {hashtags}\n\n"
+            + checklist
+            + "Devolva APENAS YAML:\n"
+            + "veredicto: aprovado | refazer\n"
+            + "motivo: <motivo objetivo>\n"
         )
 
     def _montar_prompt_visual(
