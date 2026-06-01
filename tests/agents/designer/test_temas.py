@@ -93,3 +93,12 @@ def test_automatizacao_html_inclui_conteudo_e_imagem() -> None:
     assert "5 MITOS" in html
     assert "data:image/png;base64,AUTO" in html
     assert "ningu" in html
+
+
+def test_conceito_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("conceito").html(_content(), "data:image/png;base64,CONCEITO")
+    assert get_tema("conceito").nome == "conceito"
+    assert get_tema("conceito").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,CONCEITO" in html
+    assert "ningu" in html
