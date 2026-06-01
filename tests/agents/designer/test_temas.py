@@ -30,3 +30,12 @@ def test_mitos_html_inclui_conteudo_e_imagem() -> None:
     assert "conversar com IA" in html
     assert "PARE DE ACREDITAR" in html
     assert "svg" in html.lower()
+
+
+def test_tech_html_inclui_conteudo_e_imagem() -> None:
+    html = get_tema("tech").html(_content(), "data:image/png;base64,TECH")
+    assert get_tema("tech").nome == "tech"
+    assert get_tema("tech").usa_soul is True
+    assert "5 MITOS" in html
+    assert "data:image/png;base64,TECH" in html
+    assert "conversar com IA" in html
