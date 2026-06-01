@@ -35,11 +35,24 @@ pautas:
 _QA_OK = "veredicto: aprovado\nmotivo: ok"
 _QA_REFAZER = "veredicto: refazer\nmotivo: hook fraco"
 _BRIEFING_YAML = "angulo: a\ngancho_padrao_id: mito-verdade\ncta_unico: Comenta AGENTE\n"
+_DIRETOR_YAML = """
+atribuicoes:
+  - rota: foto-hero
+    tema: mitos
+    gancho_padrao_id: mito-verdade
+  - rota: tipografico
+    tema:
+    gancho_padrao_id: passo-a-passo
+  - rota: foto-local
+    tema:
+    gancho_padrao_id: testei-descobri
+"""
 
 
 def _coord_ok_responses() -> list[str]:
     return [
         _PLAN_YAML,
+        _DIRETOR_YAML,
         _BRIEFING_YAML,
         _QA_OK,
         _QA_OK,
@@ -188,6 +201,7 @@ def test_autoqa_copy_refaz_e_aprova_na_segunda() -> None:
     llm = FakeLLM(
         responses=[
             _PLAN_YAML,
+            _DIRETOR_YAML,
             _BRIEFING_YAML,
             _QA_REFAZER,  # post 1 copy tentativa 1
             _QA_OK,  # post 1 copy tentativa 2
@@ -237,6 +251,7 @@ def test_designer_falha_num_post_nao_derruba_os_outros() -> None:
     llm = FakeLLM(
         responses=[
             _PLAN_YAML,
+            _DIRETOR_YAML,
             _BRIEFING_YAML,
             _QA_OK,
             _QA_OK,

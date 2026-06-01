@@ -76,12 +76,19 @@ class Agent(BaseAgent):
         copy = input.get("copy") or {}
         knowledge_pack = input.get("knowledge_pack") or {}
         variedade_contexto = input.get("variedade_contexto") or []
+        atribuicao = input.get("atribuicao")
 
         fotos = self._listar_recursos(_FOTOS_FOLDER)
         index = carregar_index(self._vault)
         brief = filtrar(index, pauta, copy)
         decisao = self._decidir_template(
-            knowledge_pack, pauta, copy, fotos, brief, variedade_contexto
+            knowledge_pack,
+            pauta,
+            copy,
+            fotos,
+            brief,
+            variedade_contexto,
+            atribuicao if isinstance(atribuicao, dict) else None,
         )
         slides = self._construir_slides(pauta, copy, decisao, tipo)
         dimensoes = _DIMS.get(tipo, [1080, 1350])

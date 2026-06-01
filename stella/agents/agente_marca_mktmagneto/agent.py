@@ -19,6 +19,7 @@ from stella.agents.copywriter.ganchos import GanchoCatalog
 from stella.agents.designer.compositor import HtmlCompositor
 from stella.agents.designer.resolvedor_foto_hero import ResolvedorFotoHero
 from stella.agents.designer.spec import DesignSpec
+from stella.agents.designer.temas.registry import TEMAS as TEMAS_FOTO_HERO
 from stella.domain.post import PostTexto
 from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
@@ -26,6 +27,7 @@ from stella.infra.config import StellaConfig
 
 from .autoqa import AutoQA
 from .carregador_marca import CarregadorMarca
+from .diretor import AtribuicaoEditorial, DiretorCriativo
 from .escritor_fila import EscritorFila
 from .pesquisador import Pesquisador, _MCPInvocavel
 from .planejador import Planejador
@@ -71,19 +73,31 @@ class Agent(BaseAgent):
                     break
         return candidatos
 
-    def _atualizar_calendario(self, pautas: list[Any], datas: list[datetime]) -> None:
+    def _atualizar_calendario(
+        self,
+        pautas: list[Any],
+        datas: list[datetime],
+        atribuicoes: list[AtribuicaoEditorial] | None = None,
+    ) -> None:
         if self._vault is None:
             return
         cal_path = "C04 Claude Obsidian/outputs/mktmagneto-ia/calendario.md"
         header = (
             "# Calendário de pautas — @mktmagneto.ia\n\n"
-            "| data | pilar | título | status |\n"
-            "|------|-------|--------|--------|\n"
+            "| data | pilar | título | formato | tema | status |\n"
+            "|------|-------|--------|---------|------|--------|\n"
         )
-        linhas_novas = "\n".join(
-            f"| {d.strftime('%Y-%m-%d')} | {p.pilar} | {p.titulo} | planejado |"
-            for p, d in zip(pautas, datas, strict=False)
-        )
+        atribs = atribuicoes or []
+        linhas: list[str] = []
+        for idx, (pauta, data) in enumerate(zip(pautas, datas, strict=False)):
+            atrib = atribs[idx] if idx < len(atribs) else None
+            formato = atrib.rota if atrib is not None else "-"
+            tema = atrib.tema if atrib is not None and atrib.tema else "-"
+            linhas.append(
+                f"| {data.strftime('%Y-%m-%d')} | {pauta.pilar} | {pauta.titulo} | "
+                f"{formato} | {tema} | planejado |"
+            )
+        linhas_novas = "\n".join(linhas)
         try:
             nota = self._vault.read_note(cal_path)
             conteudo = nota.content.rstrip() + "\n" + linhas_novas + "\n"
@@ -133,6 +147,10 @@ class Agent(BaseAgent):
             calendario_atual=[],
             briefing=knowledge.get("briefing", ""),
         )
+        atribuicoes = DiretorCriativo(
+            llm=self._llm.select(complexity="high"),
+            temas_disponiveis=list(TEMAS_FOTO_HERO.keys()),
+        ).dirigir(pautas=pautas, knowledge=knowledge, digest=str(digest))
 
         # 4. Pipeline por pauta: copy → QA → design → QA → fila
         agora = self._now()
@@ -145,6 +163,7 @@ class Agent(BaseAgent):
 
         for i, pauta in enumerate(pautas):
             post_warnings: list[str] = []
+            atrib = atribuicoes[i]
             pauta_dict: dict[str, Any] = {
                 "pilar": pauta.pilar,
                 "titulo": pauta.titulo,
@@ -158,6 +177,7 @@ class Agent(BaseAgent):
                 docs = self._rag.search(pauta.titulo)
                 referencia_txt = "\n\n".join(str(d.get("texto", "")) for d in docs)
             knowledge_pauta = {**knowledge, "referencia": referencia_txt}
+            knowledge_pauta["gancho_padrao_id"] = atrib.gancho_padrao_id
             briefing = MontadorBriefing(
                 llm=self._llm.select(complexity="high"), ganchos=GanchoCatalog()
             ).montar(pauta=pauta_dict, knowledge_pauta=knowledge_pauta)
@@ -201,6 +221,7 @@ class Agent(BaseAgent):
                     "pauta": pauta_dict,
                     "copy": copy,
                     "variedade_contexto": list(estilos_usados),
+                    "atribuicao": asdict(atrib),
                 },
             )
             if not design_out.sucesso:
@@ -270,7 +291,11 @@ class Agent(BaseAgent):
             except Exception as e:  # noqa: BLE001
                 erros.append(f"Escrita do post {i + 1} falhou: {e}")
 
-        self._atualizar_calendario(pautas[:posts_em_rascunho], datas[:posts_em_rascunho])
+        self._atualizar_calendario(
+            pautas[:posts_em_rascunho],
+            datas[:posts_em_rascunho],
+            atribuicoes[:posts_em_rascunho],
+        )
 
         return AgentOutput(
             resultado={

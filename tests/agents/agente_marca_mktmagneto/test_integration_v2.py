@@ -66,11 +66,24 @@ rationale: "Template ideal para carrossel denso"
 _QA_OK = "veredicto: aprovado\nmotivo: ok"
 _QA_REFAZER = "veredicto: refazer\nmotivo: legenda muito longa, encurtar"
 _BRIEFING_YAML = "angulo: a\ngancho_padrao_id: mito-verdade\ncta_unico: Comenta AGENTE\n"
+_DIRETOR_YAML = """
+atribuicoes:
+  - rota: foto-hero
+    tema: mitos
+    gancho_padrao_id: mito-verdade
+  - rota: tipografico
+    tema:
+    gancho_padrao_id: passo-a-passo
+  - rota: foto-local
+    tema:
+    gancho_padrao_id: testei-descobri
+"""
 
 
 def _coord_ok_responses() -> list[str]:
     return [
         _PLAN_YAML,
+        _DIRETOR_YAML,
         _BRIEFING_YAML,
         _QA_OK,
         _QA_OK,
@@ -195,6 +208,7 @@ def test_qa_warn_only_nao_bloqueia_post() -> None:
     coord_llm = FakeLLM(
         responses=[
             _PLAN_YAML,
+            _DIRETOR_YAML,
             _BRIEFING_YAML,
             _QA_REFAZER,  # post 1 copy t1 — reprovado
             _QA_REFAZER,  # post 1 copy t2 — ainda reprovado → aviso

@@ -83,6 +83,7 @@ def test_grounding_injetado_no_payload_do_copywriter(monkeypatch):
     coord_llm = FakeLLM(
         responses=[
             'pautas:\n  - {pilar: 1, titulo: "do chat a construcao"}\n',
+            "atribuicoes:\n  - rota: tipografico\n    tema:\n    gancho_padrao_id: mito-verdade\n",
             "angulo: a\ngancho_padrao_id: mito-verdade\ncta_unico: C\n",
             "veredicto: aprovado\nmotivo: ok",
             "veredicto: aprovado\nmotivo: ok",
