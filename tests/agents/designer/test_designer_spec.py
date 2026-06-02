@@ -238,10 +238,40 @@ def test_conteudo_dos_slides_alinha_com_placeholders_do_template() -> None:
 
     spec_json = vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
     spec = DesignSpec.from_json(spec_json)
-    assert spec.slides[0].conteudo["code_pauta"] == "como montar um fluxo"
+    # code_pauta agora é slug curto (não o título inteiro — antes duplicava o headline)
+    assert spec.slides[0].conteudo["code_pauta"] == "como-montar-um"
     assert spec.slides[0].conteudo["code_formato"] == "carrossel"
     assert spec.slides[1].conteudo["counter"] == "02 / 02"
-    assert spec.slides[1].conteudo["texto"] == "linha a\nlinha b"
+    # slide string legado vira corpo (via _limpar_texto_slide) na zona s_corpo
+    assert spec.slides[1].conteudo["s_corpo"] == "linha a<br>linha b"
+
+
+def test_slides_estruturados_mapeiam_para_zonas_do_template() -> None:
+    designer, vault = _make_designer()
+    copy = {
+        **_COPY,
+        "slides": [
+            {"titulo": "capa"},
+            {
+                "titulo": "O erro nº 1",
+                "corpo": "use IA como sistema, não como chat",
+                "destaque": "sistema",
+                "terminal": "$ comenta AGENTE",
+                "label": "salva esse post",
+            },
+        ],
+    }
+    out = designer.execute({"knowledge_pack": _KP, "pauta": _PAUTA_CARROSSEL, "copy": copy})
+
+    spec = DesignSpec.from_json(
+        vault.read_binary(out.resultado["design_spec_path"]).decode("utf-8")
+    )
+    c = spec.slides[1].conteudo
+    assert c["s_titulo"] == "O erro nº 1"
+    assert c["s_corpo"] == "use IA como <b>sistema</b>, não como chat"
+    assert 'class="terminal"' in c["terminal_block"]
+    assert "$ comenta AGENTE" in c["terminal_block"]
+    assert "salva esse post".upper() in c["terminal_block"].upper()
 
 
 def test_limpar_texto_slide_remove_metadados_de_planejamento() -> None:
