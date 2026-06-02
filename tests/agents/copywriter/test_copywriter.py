@@ -64,6 +64,44 @@ def test_copywriter_retorna_legenda_slides_hashtags_rationale() -> None:
     assert out.resultado["rationale"] != ""
 
 
+_COPY_ESTRUTURADO = """
+legenda: "🔥 Hook\n\nx\n\n👇 CTA"
+headline_hero: "20 MITOS DA IA"
+slides:
+  - titulo: "O mito"
+    corpo: "todo mundo acha que IA é chat"
+    destaque: "chat"
+  - titulo: "A virada"
+    corpo: "IA é sistema que roda sozinho"
+    terminal: "$ comenta AGENTE"
+    label: "salva esse post"
+hashtags: ["#ia"]
+rationale: "PAS"
+"""
+
+
+def test_copywriter_slides_estruturados_e_headline_hero() -> None:
+    out = _agent([_COPY_ESTRUTURADO]).execute({"knowledge_pack": _KP, "pauta": _PAUTA})
+    assert out.resultado["headline_hero"] == "20 MITOS DA IA"
+    s0, s1 = out.resultado["slides"]
+    assert s0 == {
+        "titulo": "O mito",
+        "corpo": "todo mundo acha que IA é chat",
+        "destaque": "chat",
+        "terminal": "",
+        "label": "",
+    }
+    assert s1["terminal"] == "$ comenta AGENTE"
+    assert s1["label"] == "salva esse post"
+
+
+def test_copywriter_slide_string_legado_vira_corpo() -> None:
+    out = _agent([_COPY_YAML]).execute({"knowledge_pack": _KP, "pauta": _PAUTA})
+    s = out.resultado["slides"][0]
+    assert s["corpo"] == "Slide 1 — ideia"
+    assert s["titulo"] == ""
+
+
 def test_copywriter_sem_knowledge_pack_retorna_sucesso_false() -> None:
     agent = _agent([])
     out = agent.execute({"pauta": _PAUTA})

@@ -10,6 +10,20 @@ from stella.agents.agente_marca_mktmagneto.planejador import _strip_code_fence
 from stella.framework.agent import Agent as BaseAgent
 from stella.framework.agent import AgentOutput
 
+# Campos estruturados de um slide de carrossel. Cada slide vira ZONAS do template
+# (titulo grande, corpo, palavra-chave destacada, caixa terminal do CTA, selo).
+_SLIDE_CAMPOS = ("titulo", "corpo", "destaque", "terminal", "label")
+
+
+def _normalizar_slide(bruto: Any) -> dict[str, str]:
+    """Normaliza um item de `slides` para dict com as 5 zonas (sempre str).
+
+    Aceita o formato novo (dict estruturado) e o legado (string solta → vira corpo).
+    """
+    if isinstance(bruto, dict):
+        return {c: str(bruto.get(c, "") or "").strip() for c in _SLIDE_CAMPOS}
+    return {c: (str(bruto).strip() if c == "corpo" else "") for c in _SLIDE_CAMPOS}
+
 
 class Agent(BaseAgent):
     """Especialista de copy: recebe knowledge_pack + pauta, devolve copy completa."""
@@ -55,7 +69,8 @@ class Agent(BaseAgent):
             dados = {}
 
         legenda = str(dados.get("legenda", "")).strip()
-        slides = [str(s) for s in dados.get("slides", [])]
+        slides = [_normalizar_slide(s) for s in dados.get("slides", [])]
+        headline_hero = str(dados.get("headline_hero", "")).strip()
         hashtags = [str(h) for h in dados.get("hashtags", [])]
         rationale = str(dados.get("rationale", "")).strip()
 
@@ -64,6 +79,7 @@ class Agent(BaseAgent):
             resultado={
                 "legenda": legenda,
                 "slides": slides,
+                "headline_hero": headline_hero,
                 "hashtags": hashtags,
                 "rationale": rationale,
             },
@@ -143,6 +159,11 @@ class Agent(BaseAgent):
 
         partes += [
             "",
+            "REGRA DE OURO DOS SLIDES: entregue o TEXTO FINAL pronto pra publicar.",
+            "NUNCA escreva rótulos de design ('Headline:', 'Subtexto:', 'Palavra-chave:',",
+            "'Caixa terminal:', 'Label oliva:') dentro do texto — esses viram zonas do layout,",
+            "preenchidas pelos campos abaixo. `titulo`/`corpo` são frases reais, não instruções.",
+            "",
             "Devolva APENAS YAML no formato:",
             "legenda: |",
             "  🔥 [hook]",
@@ -150,8 +171,14 @@ class Agent(BaseAgent):
             "  [corpo]",
             "",
             "  👇 [CTA]",
+            "headline_hero: [headline curta e punchy, 2 a 5 palavras, p/ capa de imagem única]",
             "slides:",
-            "  - [texto de cada slide]",
+            "  - titulo: [frase-título curta do slide, até ~6 palavras]",
+            "    corpo: [1 a 3 linhas, texto final; pode usar → para itens]",
+            "    destaque: [palavra/expressão do corpo a realçar — opcional]",
+            "  # o ÚLTIMO slide deve trazer o CTA:",
+            "    terminal: [comando estilo terminal p/ CTA, ex '$ comenta AGENTE' — opcional]",
+            "    label: [selo curto, ex 'SALVA ESSE POST' — opcional]",
             "hashtags:",
             "  - [12 a 15 hashtags]",
             "rationale: [técnica aplicada]",

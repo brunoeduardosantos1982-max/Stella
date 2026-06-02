@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html as _html
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -264,8 +265,8 @@ class Agent(BaseAgent):
         pilar = str(pauta.get("pilar", ""))
         tag = f"{pilar} - mktmagneto.ia" if pilar else "mktmagneto.ia"
         linha1, destaque = _split_headline(titulo)
-        textos = copy.get("slides", [])
-        total_conteudo = max(1, len(textos) - 1)
+        slides_copy = [_slide_dict(s) for s in copy.get("slides", [])]
+        total_conteudo = max(1, len(slides_copy) - 1)
 
         capa = SlideSpec(
             index=0,
@@ -274,7 +275,8 @@ class Agent(BaseAgent):
                 "headline_linha1": linha1,
                 "headline_destaque": destaque,
                 "tag": tag,
-                "code_pauta": str(titulo).lower(),
+                # slug curto (NÃO o título inteiro — antes duplicava o headline)
+                "code_pauta": _slug(titulo),
                 "code_formato": tipo,
             },
             foto=decisao["foto_escolhida"] or None,
@@ -284,14 +286,16 @@ class Agent(BaseAgent):
         slides = [capa]
 
         if tipo == "carrossel":
-            for i, texto in enumerate(textos[1:], start=1):
+            for i, sc in enumerate(slides_copy[1:], start=1):
                 slides.append(
                     SlideSpec(
                         index=i,
                         template="slide-conteudo",
                         conteudo={
                             "counter": f"{i + 1:02d} / {total_conteudo + 1:02d}",
-                            "texto": _limpar_texto_slide(str(texto)),
+                            "s_titulo": _html.escape(sc["titulo"]),
+                            "s_corpo": _corpo_html(sc["corpo"], sc["destaque"]),
+                            "terminal_block": _terminal_block(sc["terminal"], sc["label"]),
                             "tag": tag,
                         },
                     )
@@ -333,17 +337,70 @@ def _split_headline(titulo: str) -> tuple[str, str]:
     return " ".join(words[:cut]), " ".join(words[cut:])
 
 
+_SLIDE_CAMPOS = ("titulo", "corpo", "destaque", "terminal", "label")
+
+
+def _slide_dict(bruto: Any) -> dict[str, str]:
+    """Normaliza um slide de copy para as 5 zonas (aceita dict novo ou str legada)."""
+    if isinstance(bruto, dict):
+        return {c: str(bruto.get(c, "") or "").strip() for c in _SLIDE_CAMPOS}
+    return {c: (_limpar_texto_slide(str(bruto)) if c == "corpo" else "") for c in _SLIDE_CAMPOS}
+
+
+def _corpo_html(corpo: str, destaque: str) -> str:
+    """Escapa o corpo, realça o `destaque` (1ª ocorrência) e troca \\n por <br>."""
+    safe = _html.escape(corpo)
+    if destaque:
+        d = _html.escape(destaque)
+        safe = safe.replace(d, f"<b>{d}</b>", 1)
+    return safe.replace("\n", "<br>")
+
+
+def _terminal_block(terminal: str, label: str) -> str:
+    """HTML da caixa terminal (CTA) + selo. Vazio se não houver nem terminal nem label."""
+    if not terminal and not label:
+        return ""
+    code = (
+        f'<div class="terminal"><div class="code">{_html.escape(terminal)}</div></div>'
+        if terminal
+        else ""
+    )
+    lbl = f'<div class="cta-label">{_html.escape(label)}</div>' if label else ""
+    return code + lbl
+
+
+def _slug(titulo: str, *, max_palavras: int = 3) -> str:
+    """Slug curto p/ a caixa 'build' da capa (não o título inteiro)."""
+    palavras = re.findall(r"[a-z0-9]+", str(titulo).lower())
+    return "-".join(palavras[:max_palavras]) or "post"
+
+
+def _encurtar_titulo(titulo: str, *, max_chars: int = 28) -> str:
+    """Encurta no limite de palavra (sem corte a meia-palavra) p/ fallback de headline-herói."""
+    t = titulo.upper().strip()
+    if len(t) <= max_chars:
+        return t
+    out = ""
+    for p in t.split():
+        if out and len(f"{out} {p}") > max_chars:
+            break
+        out = f"{out} {p}".strip()
+    return out or t[:max_chars]
+
+
 def _montar_foto_hero(
     pauta: dict[str, Any], copy: dict[str, Any], atribuicao: dict[str, Any]
 ) -> dict[str, Any]:
     titulo = str(pauta.get("titulo", ""))
-    slides = [str(s) for s in copy.get("slides", [])]
-    anotacoes = [s[:40] for s in slides[:2]]
+    # Headline-herói: os templates foto-hero usam tipografia gigante (2-4 palavras).
+    # Usa o headline curto da copy; cai p/ versão encurtada do título se ausente.
+    headline = str(copy.get("headline_hero", "")).strip().upper() or _encurtar_titulo(titulo)
     return {
-        "headline": titulo.upper()[:48],
+        "headline": headline,
         "sublabel": "e a verdade que ninguem te conta",
         "label_topo": "",
-        "anotacoes": anotacoes,
+        # anotacoes vazio: antes recebia texto cru dos slides → lixo na arte.
+        "anotacoes": [],
         "logos": [],
         "counter": "",
     }
