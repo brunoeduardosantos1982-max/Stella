@@ -1,5 +1,21 @@
+import re
+
 from stella.agents.designer.temas.base import FotoHeroContent
 from stella.agents.designer.temas.registry import TEMAS, get_tema
+
+# Jargão inglês que o Higgsfield tende a RENDERIZAR como texto na imagem
+# (ex.: 'starburst' virou um verbete 'Starburst?' assado na foto). Os prompts
+# devem descrever o visual em PT, sem nomes que o modelo escreva literalmente.
+_JARGAO_RISCO_TEXTO = re.compile(r"\b(starburst|ugc|pill|ui)\b", re.IGNORECASE)
+
+
+def test_nenhum_hf_prompt_usa_jargao_que_vira_texto() -> None:
+    ofensores = {
+        nome: m.group(0)
+        for nome, recipe in TEMAS.items()
+        if (m := _JARGAO_RISCO_TEXTO.search(recipe.hf_prompt()))
+    }
+    assert ofensores == {}, f"prompts com jargão que o HF escreve como texto: {ofensores}"
 
 
 def _content() -> FotoHeroContent:
