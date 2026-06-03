@@ -15,14 +15,6 @@ from stella.agents.designer.temas.registry import get_tema
 if TYPE_CHECKING:
     from stella.agents.designer.spec import DesignSpec
 
-# A imagem do herói é só FUNDO — toda a tipografia entra via composição HTML.
-# Sem isto o Higgsfield "assa" texto falso/embolado na foto (gibberish no meio).
-_SEM_TEXTO = (
-    " Sem nenhum texto, letra, palavra, número, legenda ou marca d'água na imagem; "
-    "apenas formas e a cena fotográfica. Nomes de formas/elementos na descrição são só "
-    "para o visual — NUNCA os escreva como texto na imagem."
-)
-
 
 @dataclass
 class ResolvedorFotoHero:
@@ -37,11 +29,10 @@ class ResolvedorFotoHero:
                 continue
             try:
                 recipe = get_tema(slide.tema)
-                prompt = recipe.hf_prompt() + _SEM_TEXTO
                 url = (
-                    self.higgs.generate_image(prompt)
+                    self.higgs.generate_image(recipe.hf_prompt())
                     if recipe.usa_soul
-                    else self.higgs.generate_image(prompt, soul_id="")
+                    else self.higgs.generate_image(recipe.hf_prompt(), soul_id="")
                 )
                 hero = self.baixar(url)
                 c = _foto_hero_content(slide.foto_hero)

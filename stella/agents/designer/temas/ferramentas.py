@@ -8,7 +8,7 @@ from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
     "Foto espontanea estilo celular do homem careca ao ar livre/urbano, luz natural, casual, "
-    "espaco na base p/ headline branca + selo de nicho."
+    "ampla area lisa e vazia na base."
 )
 
 

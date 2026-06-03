@@ -8,7 +8,7 @@ from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
     "Retrato lateral cinematografico do homem careca, ambiente sofisticado "
-    "(biblioteca/escritorio escuro), luz quente premium, profundidade, espaco p/ headline na base."
+    "(biblioteca/escritorio escuro), luz quente premium, profundidade, ampla area lisa e vazia na base."
 )
 
 

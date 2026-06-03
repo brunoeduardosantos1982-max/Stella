@@ -7,7 +7,7 @@ import html as _html
 from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
-    "(sem foto) fundo claro off-white minimalista, espaco p/ headline preta + lista de cards; "
+    "(sem foto) fundo claro off-white minimalista; "
     "o html gera o layout claro com icone/estrela 3D em CSS."
 )
 

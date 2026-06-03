@@ -8,7 +8,7 @@ from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
     "Cena conceitual cinematografica dramatica do homem careca em pose inusitada, luz laranja "
-    "vertical em fundo escuro, atmosfera surreal premium, muito espaco p/ tipografia."
+    "vertical em fundo escuro, atmosfera surreal premium, muito espaco negativo liso ao redor."
 )
 
 
