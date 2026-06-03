@@ -8,8 +8,8 @@ from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
     "Retrato do homem careca de camisa escura em sala de servidores/centro de dados futurista, "
-    "paineis holograficos de UI azul ao redor, luz ciano, atmosfera tech imersiva premium, "
-    "foto editorial, espaco p/ headline na base."
+    "paineis holograficos azuis abstratos sem texto legivel ao redor, luz ciano, "
+    "atmosfera imersiva premium, foto editorial, espaco p/ headline na base."
 )
 
 

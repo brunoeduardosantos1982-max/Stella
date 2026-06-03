@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 # Sem isto o Higgsfield "assa" texto falso/embolado na foto (gibberish no meio).
 _SEM_TEXTO = (
     " Sem nenhum texto, letra, palavra, número, legenda ou marca d'água na imagem; "
-    "apenas a cena fotográfica."
+    "apenas formas e a cena fotográfica. Nomes de formas/elementos na descrição são só "
+    "para o visual — NUNCA os escreva como texto na imagem."
 )
 
 

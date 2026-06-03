@@ -8,7 +8,8 @@ from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
     "Homem careca apontando para cima com as duas maos, fundo claro quente com grande forma "
-    "grafica (starburst) atras, expressao confiante, metade superior livre p/ headline + promessa."
+    "radial de raios de luz partindo do centro atras, expressao confiante, "
+    "metade superior livre p/ headline + promessa."
 )
 
 

@@ -1,4 +1,4 @@
-"""Tema 'ferramentas' - selfie UGC + pill de nicho."""
+"""Tema 'ferramentas' - foto espontanea estilo celular + selo de nicho."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import html as _html
 from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
-    "Selfie autentica (UGC) do homem careca ao ar livre/urbano, luz natural, casual, "
-    "espaco na base p/ headline branca + pill de nicho."
+    "Foto espontanea estilo celular do homem careca ao ar livre/urbano, luz natural, casual, "
+    "espaco na base p/ headline branca + selo de nicho."
 )
 
 
