@@ -41,4 +41,4 @@ def test_pipeline_foto_hero_resolve() -> None:
     spec2 = DesignSpec.from_json(vault.read_binary(sp).decode("utf-8"))
     w = r.resolver(spec2, post_id="2026-06-12-01")
     assert w == [] and spec2.slides[0].foto is not None
-    assert spec2.slides[0].foto.endswith("hero0.png")
+    assert spec2.slides[0].foto.endswith("/2026-06-12-01/slide-00.png")

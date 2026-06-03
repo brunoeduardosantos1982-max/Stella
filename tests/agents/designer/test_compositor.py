@@ -25,7 +25,7 @@ def test_compor_grava_png_e_devolve_path() -> None:
     comp = HtmlCompositor(renderer=_renderer(b"XYZ"), vault=vault)
     c = FotoHeroContent(headline="5 MITOS")
     path = comp.compor("mitos", c, b"HEROBYTES", post_id="2026-06-12-01", idx=0)
-    assert path == "C04 Claude Obsidian/outputs/mktmagneto-ia/imagens/2026-06-12-01/hero0.png"
+    assert path == "C04 Claude Obsidian/Stella-publicacao/fila/2026-06-12-01/slide-00.png"
     assert vault.read_binary(path) == b"XYZ"
 
 
