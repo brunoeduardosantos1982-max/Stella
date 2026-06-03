@@ -54,7 +54,7 @@ def test_resolve_seta_foto_do_slide() -> None:
     assert w == []
     assert (
         spec.slides[0].foto
-        == "C04 Claude Obsidian/outputs/mktmagneto-ia/imagens/2026-06-12-01/hero0.png"
+        == "C04 Claude Obsidian/Stella-publicacao/fila/2026-06-12-01/slide-00.png"
     )
     assert vault.read_binary(spec.slides[0].foto) == b"PNG"
 

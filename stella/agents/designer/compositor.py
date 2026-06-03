@@ -13,7 +13,9 @@ from stella.adapters.vault.base import VaultRepository
 from stella.agents.designer.temas.base import FotoHeroContent
 from stella.agents.designer.temas.registry import get_tema
 
-_DIR = "C04 Claude Obsidian/outputs/mktmagneto-ia/imagens"
+# Arte final do foto-hero vai p/ a fila do post (mesmo lugar do tipográfico) —
+# assim `fila/<post_id>/` é o balcão único com TODA a arte, qualquer que seja a rota.
+_FILA = "C04 Claude Obsidian/Stella-publicacao/fila"
 
 
 def _downscale(png_bytes: bytes, *, largura: int = 1080) -> bytes:
@@ -47,6 +49,6 @@ class HtmlCompositor:
         data_uri = "data:image/png;base64," + base64.b64encode(hero_bytes).decode("ascii")
         html = get_tema(tema).html(c, data_uri)
         png = self.renderer.render(html, width=1080, height=1350)
-        rel = f"{_DIR}/{post_id}/hero{idx}.png"
+        rel = f"{_FILA}/{post_id}/slide-{idx:02d}.png"
         self.vault.write_binary(rel, png)
         return rel
