@@ -138,10 +138,31 @@ def test_copywriter_incorpora_feedback_anterior_no_prompt() -> None:
 
 
 def test_copywriter_yaml_malformado_retorna_resultado_vazio_mas_nao_crasha() -> None:
-    agent = _agent(["isto nao é YAML válido {{{"])
+    # 2 respostas inválidas: o retry também falha → sucesso False sem crashar.
+    agent = _agent(["isto nao é YAML válido {{{", "de novo invalido }}}"])
     out = agent.execute({"knowledge_pack": _KP, "pauta": _PAUTA})
     assert out.sucesso is False
     assert isinstance(out.resultado, dict)
+
+
+def test_copywriter_retry_recupera_de_resposta_invalida() -> None:
+    """1ª resposta sem legenda (YAML quebrado por ':' em valor) → retry recupera."""
+    yaml_quebrado = "slides:\n  - corpo: Apify: minera leads\n"  # colon solto → YAMLError
+    llm = FakeLLM(responses=[yaml_quebrado, _COPY_YAML])
+    agent = Copywriter(llm=cast(LLMRouter, _FakeRouter(llm)))
+    out = agent.execute({"knowledge_pack": _KP, "pauta": _PAUTA})
+    assert out.sucesso is True
+    assert out.resultado["legenda"].startswith("🔥")
+    assert len(llm.calls) == 2  # tentou de novo
+    assert "ATENÇÃO" in llm.calls[1]  # 2ª chamada levou o reforço de formato
+
+
+def test_copywriter_nao_faz_retry_quando_primeira_e_valida() -> None:
+    llm = FakeLLM(responses=[_COPY_YAML])  # só 1 resposta; se houvesse retry, crasharia
+    agent = Copywriter(llm=cast(LLMRouter, _FakeRouter(llm)))
+    out = agent.execute({"knowledge_pack": _KP, "pauta": _PAUTA})
+    assert out.sucesso is True
+    assert len(llm.calls) == 1
 
 
 def test_copywriter_descoberto_pelo_agent_registry() -> None:

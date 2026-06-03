@@ -14,6 +14,14 @@ from stella.framework.agent import AgentOutput
 # (titulo grande, corpo, palavra-chave destacada, caixa terminal do CTA, selo).
 _SLIDE_CAMPOS = ("titulo", "corpo", "destaque", "terminal", "label")
 
+# Reforço injetado na 2ª tentativa quando o 1º YAML veio inválido/sem legenda.
+_REFORCO_FORMATO = (
+    "\n\nATENÇÃO: a resposta anterior não veio em YAML válido. Devolva SOMENTE YAML, "
+    "sem texto fora dele. Use bloco literal `|` em `corpo` e `terminal` (texto livre com "
+    "`:` ou `→` é seguro dentro de `|`) e aspas duplas em `titulo`/`destaque`/`label`/"
+    "`headline_hero`. Nunca deixe `: ` solto num valor sem aspas."
+)
+
 
 def _normalizar_slide(bruto: Any) -> dict[str, str]:
     """Normaliza um item de `slides` para dict com as 5 zonas (sempre str).
@@ -58,15 +66,13 @@ class Agent(BaseAgent):
             input.get("output_anterior"),
             input.get("briefing"),
         )
-        resposta = self._llm.select(complexity="high").complete(prompt).texto
 
-        try:
-            dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
-        except yaml.YAMLError:
-            dados = {}
-
-        if not isinstance(dados, dict):
-            dados = {}
+        # Robustez: o YAML do LLM falha de vez em quando (':' em texto livre,
+        # bloco mal-indentado, resposta vazia transitória). Em vez de perder o
+        # post, tenta de novo 1x reforçando o formato estrito.
+        dados = self._gerar(prompt)
+        if not str(dados.get("legenda", "")).strip():
+            dados = self._gerar(prompt + _REFORCO_FORMATO)
 
         legenda = str(dados.get("legenda", "")).strip()
         slides = [_normalizar_slide(s) for s in dados.get("slides", [])]
@@ -84,8 +90,18 @@ class Agent(BaseAgent):
                 "rationale": rationale,
             },
             sucesso=sucesso,
-            mensagens=[] if sucesso else ["LLM não retornou legenda válida"],
+            mensagens=[] if sucesso else ["LLM não retornou legenda válida (2 tentativas)"],
         )
+
+    def _gerar(self, prompt: str) -> dict[str, Any]:
+        """Chama o LLM e parseia o YAML com tolerância (falha → dict vazio)."""
+        assert self._llm is not None  # garantido pelo gate em execute
+        resposta = self._llm.select(complexity="high").complete(prompt).texto
+        try:
+            dados = yaml.safe_load(_strip_code_fence(resposta)) or {}
+        except yaml.YAMLError:
+            dados = {}
+        return dados if isinstance(dados, dict) else {}
 
     def _montar_prompt(
         self,
@@ -164,21 +180,24 @@ class Agent(BaseAgent):
             "'Caixa terminal:', 'Label oliva:') dentro do texto — esses viram zonas do layout,",
             "preenchidas pelos campos abaixo. `titulo`/`corpo` são frases reais, não instruções.",
             "",
-            "Devolva APENAS YAML no formato:",
+            "Devolva APENAS YAML. Use bloco literal `|` em todo texto livre "
+            "(assim `:` e `→` são seguros) e aspas duplas nos campos curtos:",
+            'headline_hero: "headline curta e punchy, 2 a 5 palavras (capa de imagem única)"',
             "legenda: |",
             "  🔥 [hook]",
             "",
             "  [corpo]",
             "",
             "  👇 [CTA]",
-            "headline_hero: [headline curta e punchy, 2 a 5 palavras, p/ capa de imagem única]",
             "slides:",
-            "  - titulo: [frase-título curta do slide, até ~6 palavras]",
-            "    corpo: [1 a 3 linhas, texto final; pode usar → para itens]",
-            "    destaque: [palavra/expressão do corpo a realçar — opcional]",
+            '  - titulo: "frase-título curta, até ~6 palavras"',
+            "    corpo: |",
+            "      1 a 3 linhas, texto final; pode usar → para itens e : à vontade",
+            '    destaque: "palavra/expressão do corpo a realçar (opcional)"',
             "  # o ÚLTIMO slide deve trazer o CTA:",
-            "    terminal: [comando estilo terminal p/ CTA, ex '$ comenta AGENTE' — opcional]",
-            "    label: [selo curto, ex 'SALVA ESSE POST' — opcional]",
+            "    terminal: |",
+            "      $ comando estilo terminal p/ CTA (opcional)",
+            '    label: "selo curto, ex SALVA ESSE POST (opcional)"',
             "hashtags:",
             "  - [12 a 15 hashtags]",
             "rationale: [técnica aplicada]",
