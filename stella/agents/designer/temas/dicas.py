@@ -8,8 +8,8 @@ from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
     "Homem careca em angulo alto sobre fundo monocromatico quente (pessego/laranja) "
-    "casado com a roupa, segurando um objeto em direcao a camera, clean, espaco p/ "
-    "tipografia gigante lowercase."
+    "casado com a roupa, segurando um objeto em direcao a camera, clean, "
+    "ampla area lisa e vazia ao redor."
 )
 
 

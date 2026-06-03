@@ -8,7 +8,7 @@ from stella.agents.designer.temas.base import FotoHeroContent
 
 _HF = (
     "Homem careca com expressao de CHOQUE/surpresa (maos no rosto) em sala de servidores "
-    "com fundo de circuito, luz fria dramatica, alto contraste, espaco inferior preto p/ headline."
+    "com fundo de circuito, luz fria dramatica, alto contraste, ampla area inferior preta lisa e vazia."
 )
 
 
