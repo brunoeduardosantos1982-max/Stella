@@ -1,6 +1,7 @@
 import sys
 from collections.abc import Callable
 from datetime import datetime
+from pathlib import Path
 from typing import cast
 
 import typer
@@ -11,6 +12,14 @@ from stella.adapters.higgsfield.resolvedor import ResolvedorImagens, _baixar_htt
 from stella.adapters.vault.base import VaultRepository
 from stella.agents.designer.spec import DesignSpec
 from stella.app import Stella, build_stella
+from stella.corpo.daemon_telegram import run_daemon
+from stella.corpo.gravador import (
+    COFRE_TELEGRAM,
+    PASTA_GRAVACOES,
+    VAULT_DIR,
+    processar_pasta,
+    vigiar_pasta,
+)
 from stella.framework.cli.agent_cli import agent_app
 from stella.framework.errors import (
     AgentExecutionError,
@@ -260,6 +269,40 @@ def resolver_imagens(
         return
     for m in msgs:
         typer.echo(m)
+
+
+@app.command()
+def gravador(
+    watch: bool = typer.Option(False, "--watch", help="Vigia a pasta de gravacoes em loop"),
+    pasta: Path | None = typer.Option(None, "--pasta", help="Pasta com audios e videos"),  # noqa: B008
+    vault_dir: Path | None = typer.Option(None, "--vault-dir", help="Raiz do vault Obsidian"),  # noqa: B008
+    cofre_path: Path | None = typer.Option(None, "--cofre-path", help="Cofre Telegram"),  # noqa: B008
+) -> None:
+    """Transcreve gravacoes, salva no vault e avisa o Telegram."""
+    pasta = pasta or PASTA_GRAVACOES
+    vault_dir = vault_dir or VAULT_DIR
+    cofre_path = cofre_path or COFRE_TELEGRAM
+    stella = _build_stella_para_cli()
+    if watch:
+        typer.echo("Senhor, gravador em vigia. Vou observar a pasta de reuniões.")
+        vigiar_pasta(pasta, vault_dir, cofre_path, stella.anthropic)
+        return
+
+    total = processar_pasta(pasta, vault_dir, cofre_path, stella.anthropic)
+    if total == 0:
+        typer.echo("Senhor, pasta vazia ou sem gravações novas.")
+        return
+    typer.echo(f"Senhor, processei {total} gravação(ões) e deixei tudo registrado.")
+
+
+@app.command()
+def daemon() -> None:
+    """Inicia o daemon Telegram que conversa com Claude Code."""
+    typer.echo("Senhor, estou de ouvidos abertos no Telegram.")
+    try:
+        run_daemon()
+    except KeyboardInterrupt:
+        typer.echo("Senhor, daemon encerrado com segurança.")
 
 
 def main() -> None:
