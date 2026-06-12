@@ -3,7 +3,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-VOZ_PADRAO = "pt-BR-ThalitaMultilingualNeural"
+# Francisca e PT-BR puro; a ThalitaMultilingual e mais natural, mas detecta idioma
+# frase a frase e escorrega pro espanhol/ingles em respostas tecnicas (Bruno, 2026-06-11).
+VOZ_PADRAO = "pt-BR-FranciscaNeural"
 LIMITE_FALA = 1500
 
 _RE_BLOCO_CODIGO = re.compile(r"```.*?```", re.DOTALL)
