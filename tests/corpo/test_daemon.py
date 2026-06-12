@@ -63,6 +63,89 @@ def test_resposta_longa_e_fatiada_em_partes_de_ate_4000() -> None:
     assert "".join(partes) == "a" * 9005
 
 
+def _update_voz(chat_id: int, file_id: str = "voz-001") -> dict[str, object]:
+    return {"message": {"chat": {"id": chat_id}, "voice": {"file_id": file_id}}}
+
+
+def test_audio_autorizado_transcreve_executa_e_ecoa(monkeypatch, tmp_path: Path) -> None:
+    enviados: list[str] = []
+    executados: list[str] = []
+
+    monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
+    monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(
+        daemon,
+        "baixar_arquivo_voz",
+        lambda token, file_id, destino_dir: destino_dir / "voz.oga",
+    )
+
+    def fake_claude(texto: str) -> str:
+        executados.append(texto)
+        return "site no ar"
+
+    runtime = _runtime()
+    daemon.process_update(
+        _update_voz(123),
+        _secrets(),
+        runtime,
+        run_claude=fake_claude,
+        transcrever_audio=lambda caminho: "verifica o site da josie",
+        log_path=tmp_path / "daemon.log",
+    )
+
+    assert executados == ["verifica o site da josie"]
+    assert len(enviados) == 1
+    assert 'Entendi: "verifica o site da josie"' in enviados[0]
+    assert "site no ar" in enviados[0]
+    assert runtime.last_execution is not None
+
+
+def test_audio_com_falha_de_transcricao_avisa_e_nao_executa(monkeypatch, tmp_path: Path) -> None:
+    enviados: list[str] = []
+    monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
+    monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(
+        daemon,
+        "baixar_arquivo_voz",
+        lambda token, file_id, destino_dir: (_ for _ in ()).throw(ValueError("download falhou")),
+    )
+
+    def nao_chamar(texto: str) -> str:
+        raise AssertionError("Claude nao deveria ser chamado")
+
+    daemon.process_update(
+        _update_voz(123),
+        _secrets(),
+        _runtime(),
+        run_claude=nao_chamar,
+        transcrever_audio=lambda caminho: "",
+        log_path=tmp_path / "daemon.log",
+    )
+
+    assert len(enviados) == 1
+    assert "áudio" in enviados[0]
+
+
+def test_audio_de_chat_nao_autorizado_e_ignorado(monkeypatch, tmp_path: Path) -> None:
+    enviados: list[str] = []
+    monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
+
+    def nao_baixar(token: str, file_id: str, destino_dir: Path) -> Path:
+        raise AssertionError("nao deveria baixar audio de chat estranho")
+
+    monkeypatch.setattr(daemon, "baixar_arquivo_voz", nao_baixar)
+
+    daemon.process_update(
+        _update_voz(999),
+        _secrets(),
+        _runtime(),
+        run_claude=lambda texto: "nao deveria executar",
+        log_path=tmp_path / "daemon.log",
+    )
+
+    assert enviados == []
+
+
 def test_ping_responde_sem_chamar_subprocess(monkeypatch) -> None:
     enviados: list[str] = []
     monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -111,6 +112,27 @@ def get_updates(token: str, offset: int) -> list[dict[str, object]]:
     return [update for update in updates if isinstance(update, dict)]
 
 
+def baixar_arquivo_voz(token: str, file_id: str, destino_dir: Path) -> Path:
+    info = httpx.get(telegram_url(token, "getFile"), params={"file_id": file_id}, timeout=30)
+    info.raise_for_status()
+    data = info.json()
+    file_path = str(_as_record(data.get("result")).get("file_path", ""))
+    if not file_path:
+        raise ValueError("getFile sem file_path na resposta")
+
+    destino = destino_dir / (Path(file_path).name or "voz.oga")
+    audio = httpx.get(f"https://api.telegram.org/file/bot{token}/{file_path}", timeout=120)
+    audio.raise_for_status()
+    destino.write_bytes(audio.content)
+    return destino
+
+
+def transcrever_audio_padrao(caminho: Path) -> str:
+    from stella.corpo.gravador import transcrever_comando
+
+    return transcrever_comando(caminho)
+
+
 def executar_claude(texto: str) -> str:
     # No Windows o `claude` do npm e um shim .cmd/.ps1; CreateProcess nao resolve
     # esses sufixos sem o caminho completo, entao resolvemos via shutil.which.
@@ -145,12 +167,45 @@ def _status_text(runtime: DaemonRuntime) -> str:
     return f"Stella online há {horas}h{minutos:02d}m{segundos:02d}s. Última execução: {ultima}"
 
 
+def _texto_de_voz(
+    message: dict[str, object],
+    secrets: TelegramSecrets,
+    *,
+    transcrever_audio: Callable[[Path], str],
+    log_path: Path,
+) -> str | None:
+    """Baixa e transcreve voice/audio da mensagem; None se nao houver ou falhar."""
+    midia = _as_record(message.get("voice")) or _as_record(message.get("audio"))
+    file_id = midia.get("file_id")
+    if not isinstance(file_id, str) or not file_id:
+        return None
+
+    try:
+        send_chat_action(secrets.bot_token, secrets.chat_id)
+    except Exception as exc:
+        _append_log(log_path, f"sendChatAction falhou: {type(exc).__name__}")
+
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            caminho = baixar_arquivo_voz(secrets.bot_token, file_id, Path(tmp))
+            return transcrever_audio(caminho).strip()
+    except Exception as exc:
+        _append_log(log_path, f"falha ao transcrever voz: {type(exc).__name__}")
+        send_message(
+            secrets.bot_token,
+            secrets.chat_id,
+            "Senhor, não consegui processar esse áudio. Pode tentar de novo ou digitar?",
+        )
+        return None
+
+
 def process_update(
     update: dict[str, object],
     secrets: TelegramSecrets,
     runtime: DaemonRuntime,
     *,
     run_claude: Callable[[str], str] = executar_claude,
+    transcrever_audio: Callable[[Path], str] = transcrever_audio_padrao,
     log_path: Path = DAEMON_LOG,
 ) -> None:
     message = _as_record(update.get("message"))
@@ -162,9 +217,21 @@ def process_update(
             _append_log(log_path, f"chat nao autorizado ignorado chat_id={chat_id}")
         return
 
+    veio_de_voz = False
     texto = message.get("text")
     if not isinstance(texto, str) or not texto.strip():
-        return
+        texto = _texto_de_voz(
+            message, secrets, transcrever_audio=transcrever_audio, log_path=log_path
+        )
+        veio_de_voz = texto is not None
+        if not texto:
+            if veio_de_voz:
+                send_message(
+                    secrets.bot_token,
+                    secrets.chat_id,
+                    "Senhor, o áudio veio vazio ou sem fala clara.",
+                )
+            return
 
     texto_limpo = texto.strip()
     if texto_limpo.startswith("/ping"):
@@ -184,6 +251,8 @@ def process_update(
 
     resposta = run_claude(texto_limpo)
     runtime.last_execution = datetime.now().isoformat(timespec="seconds")
+    if veio_de_voz:
+        resposta = f'🎤 Entendi: "{texto_limpo}"\n\n{resposta}'
     send_message(secrets.bot_token, secrets.chat_id, resposta)
 
 

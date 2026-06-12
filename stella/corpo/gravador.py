@@ -56,6 +56,15 @@ def transcrever(caminho: Path) -> str:
     return "\n".join(linhas).strip()
 
 
+def transcrever_comando(caminho: Path) -> str:
+    """Transcricao curta e corrida (sem timestamps), para comandos de voz."""
+    from faster_whisper import WhisperModel
+
+    model = WhisperModel("small", device="cpu", compute_type="int8")
+    segments, _info = model.transcribe(str(caminho), language="pt", vad_filter=True)
+    return " ".join(str(segment.text).strip() for segment in segments if str(segment.text).strip())
+
+
 def resumir(transcricao: str, llm: LLMCompleter) -> str:
     prompt = (
         "Voce e a Stella, assistente de consultoria do Bruno. "
