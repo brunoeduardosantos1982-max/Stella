@@ -163,8 +163,14 @@ def _status_text(runtime: DaemonRuntime) -> str:
     uptime_s = int(time.time() - runtime.started_at)
     minutos, segundos = divmod(uptime_s, 60)
     horas, minutos = divmod(minutos, 60)
-    ultima = runtime.last_execution or "nenhuma execução ainda"
-    return f"Stella online há {horas}h{minutos:02d}m{segundos:02d}s. Última execução: {ultima}"
+    ultima = runtime.last_execution or "nenhuma ainda"
+    return (
+        "📊 Status da Stella\n"
+        "\n"
+        f"⏱ Online há {horas}h{minutos:02d}m{segundos:02d}s\n"
+        f"⚙️ Última execução: {ultima}\n"
+        "🧠 Cérebro: Claude Code | 🎤 Voz: ativa"
+    )
 
 
 def _texto_de_voz(
@@ -235,9 +241,16 @@ def process_update(
 
     texto_limpo = texto.strip()
     if texto_limpo.startswith("/ping"):
-        send_message(
-            secrets.bot_token, secrets.chat_id, f"Stella online_ {datetime.now():%Y-%m-%d %H:%M:%S}"
+        agora = datetime.now()
+        card = (
+            "⚡ Stella online_\n"
+            "\n"
+            "🧠 Cérebro: Claude Code\n"
+            "📡 Corpo: daemon Telegram\n"
+            "🎤 Voz: ativa (whisper local)\n"
+            f"🕐 {agora:%d/%m/%Y %H:%M:%S}"
         )
+        send_message(secrets.bot_token, secrets.chat_id, card)
         return
 
     if texto_limpo.startswith("/status"):

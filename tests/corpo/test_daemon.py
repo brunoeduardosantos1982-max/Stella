@@ -156,4 +156,4 @@ def test_ping_responde_sem_chamar_subprocess(monkeypatch) -> None:
     daemon.process_update(_update(123, "/ping"), _secrets(), _runtime(), run_claude=nao_chamar)
 
     assert len(enviados) == 1
-    assert enviados[0].startswith("Stella online_")
+    assert "Stella online_" in enviados[0]

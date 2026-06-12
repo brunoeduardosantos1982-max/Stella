@@ -295,10 +295,27 @@ def gravador(
     typer.echo(f"Senhor, processei {total} gravação(ões) e deixei tudo registrado.")
 
 
+_BANNER_DAEMON = """
+  ███████╗████████╗███████╗██╗     ██╗      █████╗
+  ██╔════╝╚══██╔══╝██╔════╝██║     ██║     ██╔══██╗
+  ███████╗   ██║   █████╗  ██║     ██║     ███████║
+  ╚════██║   ██║   ██╔══╝  ██║     ██║     ██╔══██║
+  ███████║   ██║   ███████╗███████╗███████╗██║  ██║
+  ╚══════╝   ╚═╝   ╚══════╝╚══════╝╚══════╝╚═╝  ╚═╝
+"""
+
+
 @app.command()
 def daemon() -> None:
     """Inicia o daemon Telegram que conversa com Claude Code."""
-    typer.echo("Senhor, estou de ouvidos abertos no Telegram.")
+    typer.echo(_BANNER_DAEMON)
+    typer.echo("  🧠 Cérebro : Claude Code")
+    typer.echo("  📡 Corpo   : daemon Telegram")
+    typer.echo("  🎤 Voz     : ativa (whisper local)")
+    typer.echo(f"  🕐 Início  : {datetime.now():%d/%m/%Y %H:%M:%S}")
+    typer.echo("")
+    typer.echo("  Senhor, estou de ouvidos abertos no Telegram.")
+    typer.echo("")
     try:
         run_daemon()
     except KeyboardInterrupt:
