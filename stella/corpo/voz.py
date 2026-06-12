@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-VOZ_PADRAO = "pt-BR-FranciscaNeural"
+VOZ_PADRAO = "pt-BR-ThalitaMultilingualNeural"
 LIMITE_FALA = 1500
 
 _RE_BLOCO_CODIGO = re.compile(r"```.*?```", re.DOTALL)
