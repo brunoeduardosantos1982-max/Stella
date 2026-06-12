@@ -311,7 +311,7 @@ def daemon() -> None:
     typer.echo(_BANNER_DAEMON)
     typer.echo("  🧠 Cérebro : Claude Code")
     typer.echo("  📡 Corpo   : daemon Telegram")
-    typer.echo("  🎤 Voz     : ativa (whisper local)")
+    typer.echo("  🎤 Voz     : ouve e fala (whisper + edge-tts)")
     typer.echo(f"  🕐 Início  : {datetime.now():%d/%m/%Y %H:%M:%S}")
     typer.echo("")
     typer.echo("  Senhor, estou de ouvidos abertos no Telegram.")

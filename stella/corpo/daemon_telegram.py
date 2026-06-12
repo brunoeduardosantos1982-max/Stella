@@ -133,6 +133,22 @@ def transcrever_audio_padrao(caminho: Path) -> str:
     return transcrever_comando(caminho)
 
 
+def sintetizar_fala_padrao(texto: str, destino: Path) -> Path:
+    from stella.corpo.voz import sintetizar
+
+    return sintetizar(texto, destino)
+
+
+def send_voice(token: str, chat_id: str, caminho: Path) -> None:
+    with caminho.open("rb") as audio:
+        httpx.post(
+            telegram_url(token, "sendVoice"),
+            data={"chat_id": chat_id},
+            files={"voice": (caminho.name, audio, "audio/mpeg")},
+            timeout=60,
+        ).raise_for_status()
+
+
 def executar_claude(texto: str) -> str:
     # No Windows o `claude` do npm e um shim .cmd/.ps1; CreateProcess nao resolve
     # esses sufixos sem o caminho completo, entao resolvemos via shutil.which.
@@ -169,7 +185,7 @@ def _status_text(runtime: DaemonRuntime) -> str:
         "\n"
         f"⏱ Online há {horas}h{minutos:02d}m{segundos:02d}s\n"
         f"⚙️ Última execução: {ultima}\n"
-        "🧠 Cérebro: Claude Code | 🎤 Voz: ativa"
+        "🧠 Cérebro: Claude Code | 🎤 Voz: ouve e fala"
     )
 
 
@@ -205,6 +221,22 @@ def _texto_de_voz(
         return None
 
 
+def _responder_com_voz(
+    resposta: str,
+    secrets: TelegramSecrets,
+    *,
+    sintetizar_fala: Callable[[str, Path], Path],
+    log_path: Path,
+) -> None:
+    """Sintetiza e envia a resposta falada; em falha so loga (o texto ja foi entregue)."""
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            caminho = sintetizar_fala(resposta, Path(tmp) / "resposta.mp3")
+            send_voice(secrets.bot_token, secrets.chat_id, caminho)
+    except Exception as exc:
+        _append_log(log_path, f"falha ao sintetizar voz: {type(exc).__name__}")
+
+
 def process_update(
     update: dict[str, object],
     secrets: TelegramSecrets,
@@ -212,6 +244,7 @@ def process_update(
     *,
     run_claude: Callable[[str], str] = executar_claude,
     transcrever_audio: Callable[[Path], str] = transcrever_audio_padrao,
+    sintetizar_fala: Callable[[str, Path], Path] = sintetizar_fala_padrao,
     log_path: Path = DAEMON_LOG,
 ) -> None:
     message = _as_record(update.get("message"))
@@ -247,7 +280,7 @@ def process_update(
             "\n"
             "🧠 Cérebro: Claude Code\n"
             "📡 Corpo: daemon Telegram\n"
-            "🎤 Voz: ativa (whisper local)\n"
+            "🎤 Voz: ouve e fala (whisper + edge-tts)\n"
             f"🕐 {agora:%d/%m/%Y %H:%M:%S}"
         )
         send_message(secrets.bot_token, secrets.chat_id, card)
@@ -265,7 +298,11 @@ def process_update(
     resposta = run_claude(texto_limpo)
     runtime.last_execution = datetime.now().isoformat(timespec="seconds")
     if veio_de_voz:
-        resposta = f'🎤 Entendi: "{texto_limpo}"\n\n{resposta}'
+        send_message(
+            secrets.bot_token, secrets.chat_id, f'🎤 Entendi: "{texto_limpo}"\n\n{resposta}'
+        )
+        _responder_com_voz(resposta, secrets, sintetizar_fala=sintetizar_fala, log_path=log_path)
+        return
     send_message(secrets.bot_token, secrets.chat_id, resposta)
 
 

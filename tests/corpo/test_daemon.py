@@ -67,9 +67,53 @@ def _update_voz(chat_id: int, file_id: str = "voz-001") -> dict[str, object]:
     return {"message": {"chat": {"id": chat_id}, "voice": {"file_id": file_id}}}
 
 
-def test_audio_autorizado_transcreve_executa_e_ecoa(monkeypatch, tmp_path: Path) -> None:
+def test_audio_autorizado_transcreve_executa_ecoa_e_fala(monkeypatch, tmp_path: Path) -> None:
     enviados: list[str] = []
     executados: list[str] = []
+    falados: list[str] = []
+    audios_enviados: list[Path] = []
+
+    monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
+    monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(
+        daemon,
+        "baixar_arquivo_voz",
+        lambda token, file_id, destino_dir: destino_dir / "voz.oga",
+    )
+    monkeypatch.setattr(
+        daemon, "send_voice", lambda token, chat_id, caminho: audios_enviados.append(caminho)
+    )
+
+    def fake_claude(texto: str) -> str:
+        executados.append(texto)
+        return "site no ar"
+
+    def fake_sintetizar(texto: str, destino: Path) -> Path:
+        falados.append(texto)
+        return destino
+
+    runtime = _runtime()
+    daemon.process_update(
+        _update_voz(123),
+        _secrets(),
+        runtime,
+        run_claude=fake_claude,
+        transcrever_audio=lambda caminho: "verifica o site da josie",
+        sintetizar_fala=fake_sintetizar,
+        log_path=tmp_path / "daemon.log",
+    )
+
+    assert executados == ["verifica o site da josie"]
+    assert len(enviados) == 1
+    assert 'Entendi: "verifica o site da josie"' in enviados[0]
+    assert "site no ar" in enviados[0]
+    assert falados == ["site no ar"]
+    assert len(audios_enviados) == 1
+    assert runtime.last_execution is not None
+
+
+def test_falha_na_sintese_nao_derruba_resposta_de_texto(monkeypatch, tmp_path: Path) -> None:
+    enviados: list[str] = []
 
     monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
     monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
@@ -79,25 +123,48 @@ def test_audio_autorizado_transcreve_executa_e_ecoa(monkeypatch, tmp_path: Path)
         lambda token, file_id, destino_dir: destino_dir / "voz.oga",
     )
 
-    def fake_claude(texto: str) -> str:
-        executados.append(texto)
-        return "site no ar"
+    def sintese_quebrada(texto: str, destino: Path) -> Path:
+        raise RuntimeError("edge-tts fora do ar")
 
-    runtime = _runtime()
     daemon.process_update(
         _update_voz(123),
         _secrets(),
-        runtime,
-        run_claude=fake_claude,
-        transcrever_audio=lambda caminho: "verifica o site da josie",
+        _runtime(),
+        run_claude=lambda texto: "resposta ok",
+        transcrever_audio=lambda caminho: "qualquer comando",
+        sintetizar_fala=sintese_quebrada,
         log_path=tmp_path / "daemon.log",
     )
 
-    assert executados == ["verifica o site da josie"]
     assert len(enviados) == 1
-    assert 'Entendi: "verifica o site da josie"' in enviados[0]
-    assert "site no ar" in enviados[0]
-    assert runtime.last_execution is not None
+    assert "resposta ok" in enviados[0]
+    log = (tmp_path / "daemon.log").read_text(encoding="utf-8")
+    assert "falha ao sintetizar voz" in log
+
+
+def test_mensagem_de_texto_nao_gera_audio(monkeypatch) -> None:
+    enviados: list[str] = []
+    audios_enviados: list[Path] = []
+
+    monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
+    monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(
+        daemon, "send_voice", lambda token, chat_id, caminho: audios_enviados.append(caminho)
+    )
+
+    def nao_sintetizar(texto: str, destino: Path) -> Path:
+        raise AssertionError("texto digitado nao deveria virar audio")
+
+    daemon.process_update(
+        _update(123, "organize meu dia"),
+        _secrets(),
+        _runtime(),
+        run_claude=lambda texto: "feito",
+        sintetizar_fala=nao_sintetizar,
+    )
+
+    assert enviados == ["feito"]
+    assert audios_enviados == []
 
 
 def test_audio_com_falha_de_transcricao_avisa_e_nao_executa(monkeypatch, tmp_path: Path) -> None:
