@@ -306,6 +306,17 @@ _BANNER_DAEMON = """
 
 
 @app.command()
+def seguranca() -> None:
+    """Roda a verificação de segurança diária do vault (determinística, sem LLM)."""
+    from stella.corpo.seguranca import montar_card, rodar_seguranca_diaria
+
+    relatorio = rodar_seguranca_diaria()
+    typer.echo(montar_card(relatorio))
+    if relatorio.criticos:
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def daemon() -> None:
     """Inicia o daemon Telegram que conversa com Claude Code."""
     typer.echo(_BANNER_DAEMON)
