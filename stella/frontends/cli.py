@@ -91,7 +91,9 @@ def _forcar_stdout_utf8() -> None:
 _forcar_stdout_utf8()
 
 app = typer.Typer(help="Stella — assistente pessoal do Bruno.")
+lembrete_app = typer.Typer(help="Lembretes temporizados da Stella.")
 app.add_typer(agent_app, name="agent")
+app.add_typer(lembrete_app, name="lembrete")
 
 
 def _build_stella_para_cli() -> Stella:
@@ -314,6 +316,68 @@ def seguranca() -> None:
     typer.echo(montar_card(relatorio))
     if relatorio.criticos:
         raise typer.Exit(code=1)
+
+
+@app.command()
+def notificar(texto: str = typer.Argument(..., help="Texto para enviar agora no Telegram")) -> None:
+    """Envia uma notificação imediata no Telegram."""
+    from stella.corpo.lembretes import notificar as notificar_telegram
+
+    try:
+        notificar_telegram(texto)
+    except Exception as e:
+        typer.echo(f"Senhor, nao consegui notificar no Telegram: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo("Notificacao enviada.")
+
+
+@lembrete_app.command("add")
+def lembrete_add(
+    quando: str = typer.Option(..., "--quando", "-q", help='ISO ou "HH:MM"'),
+    texto: str = typer.Option(..., "--texto", "-t", help="Texto do lembrete"),
+) -> None:
+    """Cria um lembrete pendente."""
+    from stella.corpo.lembretes import adicionar
+
+    try:
+        lembrete = adicionar(quando, texto)
+    except ValueError as e:
+        typer.echo(f"Senhor, horario invalido: {e}", err=True)
+        raise typer.Exit(code=2) from e
+    typer.echo(f"{lembrete['id']} | {lembrete['quando']} | {lembrete['texto']}")
+
+
+@lembrete_app.command("list")
+def lembrete_list() -> None:
+    """Lista lembretes pendentes."""
+    from stella.corpo.lembretes import listar
+
+    itens = listar()
+    if not itens:
+        typer.echo("Nenhum lembrete pendente.")
+        return
+    for item in itens:
+        typer.echo(f"{item['id']} | {item['quando']} | {item['texto']}")
+
+
+@lembrete_app.command("remover")
+def lembrete_remover(id: str = typer.Argument(..., help="ID do lembrete")) -> None:
+    """Remove um lembrete pelo ID."""
+    from stella.corpo.lembretes import remover
+
+    if not remover(id):
+        typer.echo(f"Lembrete nao encontrado: {id}", err=True)
+        raise typer.Exit(code=1)
+    typer.echo(f"Lembrete removido: {id}")
+
+
+@lembrete_app.command("tick")
+def lembrete_tick() -> None:
+    """Dispara lembretes vencidos. Comando barato para agendador."""
+    from stella.corpo.lembretes import disparar_pendentes
+
+    enviados = disparar_pendentes()
+    typer.echo(f"Lembretes enviados: {len(enviados)}")
 
 
 @app.command()

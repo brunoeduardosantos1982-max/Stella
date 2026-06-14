@@ -67,7 +67,7 @@ def _update_voz(chat_id: int, file_id: str = "voz-001") -> dict[str, object]:
     return {"message": {"chat": {"id": chat_id}, "voice": {"file_id": file_id}}}
 
 
-def test_audio_autorizado_transcreve_executa_ecoa_e_fala(monkeypatch, tmp_path: Path) -> None:
+def test_audio_autorizado_transcreve_executa_e_responde_so_voz(monkeypatch, tmp_path: Path) -> None:
     enviados: list[str] = []
     executados: list[str] = []
     falados: list[str] = []
@@ -104,9 +104,7 @@ def test_audio_autorizado_transcreve_executa_ecoa_e_fala(monkeypatch, tmp_path: 
     )
 
     assert executados == ["verifica o site da josie"]
-    assert len(enviados) == 1
-    assert 'Entendi: "verifica o site da josie"' in enviados[0]
-    assert "site no ar" in enviados[0]
+    assert enviados == []  # audio entra, audio sai: nenhum texto e enviado
     assert falados == ["site no ar"]
     assert len(audios_enviados) == 1
     assert runtime.last_execution is not None

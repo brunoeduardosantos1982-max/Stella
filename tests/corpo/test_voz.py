@@ -28,7 +28,7 @@ def test_encurtar_para_fala_corta_em_frase_e_avisa() -> None:
 
     assert len(curto) < 300
     assert curto.startswith("Primeira frase completa.")
-    assert curto.endswith("O restante está na mensagem de texto, Senhor.")
+    assert curto.endswith("posso detalhar o resto se quiser.")
 
 
 def test_encurtar_para_fala_nao_mexe_em_texto_curto() -> None:
