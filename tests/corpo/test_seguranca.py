@@ -34,7 +34,7 @@ def test_vault_saudavel_gera_status_ok(monkeypatch, tmp_path: Path) -> None:
     assert relatorio.status == "✅ OK"
     assert relatorio.criticos == []
     assert relatorio.atencoes == []
-    assert any("14/14" in info for info in relatorio.infos)
+    assert any("15/15" in info for info in relatorio.infos)
 
 
 def test_pasta_raiz_sumida_e_critico(monkeypatch, tmp_path: Path) -> None:
@@ -95,7 +95,7 @@ def test_notas_alteradas_fora_de_c04_ignora_zona_autonoma(tmp_path: Path) -> Non
 
 def test_registrar_log_segue_protocolo(tmp_path: Path) -> None:
     vault = _montar_vault(tmp_path)
-    relatorio = seguranca.Relatorio(infos=["Vault: 14/14 pastas raiz"])
+    relatorio = seguranca.Relatorio(infos=["Vault: 15/15 pastas raiz"])
 
     log_path = seguranca.registrar_log(relatorio, vault)
 
@@ -109,7 +109,7 @@ def test_montar_card_destaca_problemas() -> None:
     relatorio = seguranca.Relatorio(
         criticos=["Cofre sumiu: brevo.json"],
         atencoes=["Daemon Telegram PARADO (Stella sem ouvidos)"],
-        infos=["Vault: 14/14 pastas raiz"],
+        infos=["Vault: 15/15 pastas raiz"],
     )
 
     card = seguranca.montar_card(relatorio)

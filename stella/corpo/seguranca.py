@@ -29,6 +29,7 @@ PASTAS_RAIZ = [
     "C02 Readwise",
     "C03 Book database",
     "C04 Claude Obsidian",
+    "C04 Codex Obsidian",
 ]
 
 ARQUIVOS_CRITICOS = [
