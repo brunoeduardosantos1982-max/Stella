@@ -8,7 +8,7 @@ import tempfile
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -17,6 +17,8 @@ COFRE_TELEGRAM = Path("D:/VortexBrain00/.secrets/telegram.json")
 DAEMON_STATE = Path("D:/VortexBrain00/.secrets/daemon_state.json")
 DAEMON_LOG = Path("D:/VortexBrain00/.secrets/daemon.log")
 SESSION_STATE = Path("D:/VortexBrain00/.secrets/stella_sessao.json")
+CONTEUDO_STATE = Path("D:/VortexBrain00/.secrets/stella_conteudo.json")
+CONTEUDO_TTL_MIN = 30
 CLAUDE_CWD = Path("D:/VortexBrain00")
 TELEGRAM_CHUNK_MAX = 4000
 
@@ -47,6 +49,38 @@ PERSONA_STELLA = (
     "rode o comando uv run stella lembrete add -q HORARIO -t TEXTO (HORARIO em HH:MM ou ISO) e "
     "confirme que agendou. Você NÃO executa nada em segundo plano: o que dá pra fazer agora, faça "
     "e relate o resultado; nunca prometa 'te aviso quando terminar' sem ter criado um lembrete real."
+)
+
+# Modo conteúdo: detecta pedido de criação de conteúdo (roda em Opus).
+GATILHO_CONTEUDO = re.compile(r"\b(script|roteiro|reels?|pauta|conte[úu]do)\b", re.IGNORECASE)
+# Verbo de criação: distingue um PEDIDO NOVO ("cria um script sobre X") de um
+# seguimento ("melhora", "o ear-prompter do script"). Pedido novo zera a sessão.
+_RE_ACAO_NOVA = re.compile(
+    r"\b(cri[ae]r?|crie|fa[çz]\w*|quero|ger[ae]r?|gere|mont[ae]r?|monte|novo|nova)\b",
+    re.IGNORECASE,
+)
+
+PERSONA_CONTEUDO = (
+    "MODO CONTEÚDO ATIVO — conteúdo para @brunoe.santos. Fluxo em 3 ETAPAS; uma etapa por vez, "
+    "nunca pule. Do pedido extraia o TEMA (assunto principal) e o GANCHO (ângulo/atualidade). "
+    "ETAPA 1 — OPÇÕES COM ROTEIROS: pesquise referência (skill notebooklm no notebook de nome igual "
+    "ao TEMA: marketing, ia, viagem, tecnologia, vendas, gastronomia, personal brand; se não houver, "
+    "web; o GANCHO sempre na web). Entregue 3 OPÇÕES, cada uma com a pauta E o ROTEIRO em texto "
+    "organizado, com blocos rotulados (Gancho, Desenvolvimento, CTA) para o Bruno LER. Rode a skill "
+    "humanizer nos roteiros. Pergunte qual ele escolhe. NÃO gere áudio nem post nesta etapa. "
+    "ETAPA 2 — SCRIPT DE GRAVAÇÃO + ÁUDIO: quando ele escolher, monte o SCRIPT DE GRAVAÇÃO do roteiro "
+    "escolhido = SOMENTE as frases que ele vai FALAR na câmera, uma por linha, na ordem. PROIBIDO no "
+    "script de gravação: rótulos (Gancho/CTA/Desenvolvimento), rubricas ou direções de cena (entre [] "
+    "ou ()), emoji, hashtag, marca de tempo. É só a fala, limpa. Defina NICHO (=tema) e DATA (hoje, "
+    "AAAA-MM-DD); crie 'C04 Claude Obsidian/outputs/conteudo/<NICHO>/<DATA> — <TEMA>/' e salve nela: "
+    "roteiro-reel.md (roteiro completo com estrutura) e script-gravacao.md (só as falas, limpo). "
+    'Gere o áudio A PARTIR DO SCRIPT DE GRAVAÇÃO: uv run stella ear-prompter "<conteúdo de '
+    'script-gravacao.md>" --saida "<pasta>/ear-prompter.mp3"; depois envie: uv run stella enviar-audio '
+    '"<pasta>/ear-prompter.mp3". Mande no Telegram o script de gravação em texto e pergunte se APROVA. '
+    "ETAPA 3 — FÁBRICA (só DEPOIS que ele aprovar): gere o post de feed companheiro — copy/legenda "
+    "derivada do roteiro (rode humanizer), salva em post-feed.md com frontmatter 'marca: brunoe.santos', "
+    "e um design_spec.json (briefing visual). A IMAGEM não é renderizada aqui (sem MCP/Paper neste modo): "
+    "avise que ela fica pendente para render à parte. NÃO publique nada (Postiz desativado)."
 )
 
 
@@ -215,6 +249,38 @@ def resetar_sessao() -> None:
         pass
 
 
+def _conteudo_ativo() -> bool:
+    """True se o modo conteúdo está ligado e dentro do TTL (sticky entre mensagens)."""
+    try:
+        if CONTEUDO_STATE.exists():
+            data = json.loads(CONTEUDO_STATE.read_text(encoding="utf-8"))
+            desde = data.get("desde")
+            if data.get("ativo") and isinstance(desde, str):
+                dt = datetime.fromisoformat(desde)
+                if datetime.now(dt.tzinfo) - dt <= timedelta(minutes=CONTEUDO_TTL_MIN):
+                    return True
+    except Exception:
+        return False
+    return False
+
+
+def _ativar_conteudo() -> None:
+    try:
+        CONTEUDO_STATE.write_text(
+            json.dumps({"ativo": True, "desde": datetime.now().astimezone().isoformat()}),
+            encoding="utf-8",
+        )
+    except Exception:
+        pass
+
+
+def _desativar_conteudo() -> None:
+    try:
+        CONTEUDO_STATE.unlink(missing_ok=True)
+    except Exception:
+        pass
+
+
 def _rodar_claude_json(args: list[str]) -> tuple[int, str, str]:
     try:
         r = subprocess.run(
@@ -247,48 +313,73 @@ def _extrair_resposta(stdout: str, salvar_sessao: bool) -> str:
     return stdout.strip() or "Concluído, sem saída de texto."
 
 
+def _args_claude(
+    claude_bin: str,
+    texto: str,
+    *,
+    modelo: str | None = None,
+    resume: str | None = None,
+    mcp_on: bool = False,
+    persona: str | None = None,
+) -> list[str]:
+    """Monta os argumentos do `claude -p`. resume herda modelo/persona da sessão."""
+    args = [claude_bin, "-p", texto]
+    if resume:
+        args += ["--resume", resume]
+    elif modelo:
+        args += ["--model", modelo]
+    if not mcp_on:
+        args.append("--strict-mcp-config")  # chat rápido: sem carregar MCP
+    if persona:
+        args += ["--append-system-prompt", persona]
+    args += ["--output-format", "json"]
+    return args
+
+
+def _resultado(code: int, out: str, err: str, *, salvar: bool) -> str:
+    if code == -1:
+        return "Senhor, a execução passou do tempo limite e foi interrompida."
+    if code != 0:
+        return f"Senhor, o Claude retornou erro: {err.strip()[:500] or 'sem detalhes'}"
+    return _extrair_resposta(out, salvar_sessao=salvar)
+
+
 def executar_claude(texto: str) -> str:
-    # No Windows o `claude` do npm e um shim .cmd/.ps1; CreateProcess nao resolve
-    # esses sufixos sem o caminho completo, entao resolvemos via shutil.which.
-    modelo, texto = _selecionar_modelo(texto)
+    # No Windows o `claude` do npm e um shim .cmd/.ps1; resolvemos via shutil.which.
+    modelo_sel, texto = _selecionar_modelo(texto)
     claude_bin = shutil.which("claude") or "claude"
 
-    # Opus sob demanda: chamada AVULSA — não usa nem altera a sessão contínua.
-    if modelo == MODELO_OPUS:
-        code, out, err = _rodar_claude_json(
-            [
-                claude_bin,
-                "-p",
-                texto,
-                "--model",
-                MODELO_OPUS,
-                "--strict-mcp-config",
-                "--append-system-prompt",
-                PERSONA_STELLA,
-                "--output-format",
-                "json",
-            ]
-        )
-        if code == -1:
-            return "Senhor, a execução passou do tempo limite e foi interrompida."
-        if code != 0:
-            return f"Senhor, o Claude retornou erro: {err.strip()[:500] or 'sem detalhes'}"
-        return _extrair_resposta(out, salvar_sessao=False)
+    intent_conteudo = bool(GATILHO_CONTEUDO.search(texto))
+    nova_solicitacao = intent_conteudo and bool(_RE_ACAO_NOVA.search(texto))
+    conteudo_ja_ativo = _conteudo_ativo()
+    modo_conteudo = intent_conteudo or conteudo_ja_ativo
 
-    # Fluxo normal (Sonnet) com continuidade de conversa via --resume.
+    # Opus avulso ("preciso do opus") fora do modo conteúdo: chamada única, sem sessão.
+    if modelo_sel == MODELO_OPUS and not modo_conteudo:
+        code, out, err = _rodar_claude_json(
+            _args_claude(claude_bin, texto, modelo=MODELO_OPUS, persona=PERSONA_STELLA)
+        )
+        return _resultado(code, out, err, salvar=False)
+
+    if modo_conteudo:
+        # Conteúdo: Opus + persona de conteúdo, MCP OFF (rápido). Usa skills
+        # (notebooklm, humanizer) e WebSearch, que não precisam de MCP. A imagem
+        # (Paper, etapa 3) fica deferida: salva design_spec, render é à parte.
+        modelo = MODELO_OPUS
+        mcp_on = False
+        persona = PERSONA_STELLA + "\n\n" + PERSONA_CONTEUDO
+        if nova_solicitacao:
+            resetar_sessao()  # pedido NOVO → sessão limpa (esquece o tema anterior)
+        _ativar_conteudo()  # renova o TTL sticky
+    else:
+        modelo = MODELO_PADRAO
+        mcp_on = False
+        persona = PERSONA_STELLA
+
     sessao = _ler_sessao()
     if sessao:
         code, out, err = _rodar_claude_json(
-            [
-                claude_bin,
-                "-p",
-                texto,
-                "--resume",
-                sessao,
-                "--strict-mcp-config",
-                "--output-format",
-                "json",
-            ]
+            _args_claude(claude_bin, texto, resume=sessao, mcp_on=mcp_on)
         )
         if code == 0:
             return _extrair_resposta(out, salvar_sessao=True)
@@ -297,24 +388,9 @@ def executar_claude(texto: str) -> str:
         # resume falhou (sessão expirada/inválida): recomeça do zero abaixo.
 
     code, out, err = _rodar_claude_json(
-        [
-            claude_bin,
-            "-p",
-            texto,
-            "--model",
-            MODELO_PADRAO,
-            "--strict-mcp-config",
-            "--append-system-prompt",
-            PERSONA_STELLA,
-            "--output-format",
-            "json",
-        ]
+        _args_claude(claude_bin, texto, modelo=modelo, mcp_on=mcp_on, persona=persona)
     )
-    if code == -1:
-        return "Senhor, a execução passou do tempo limite e foi interrompida."
-    if code != 0:
-        return f"Senhor, o Claude retornou erro: {err.strip()[:500] or 'sem detalhes'}"
-    return _extrair_resposta(out, salvar_sessao=True)
+    return _resultado(code, out, err, salvar=True)
 
 
 def _status_text(runtime: DaemonRuntime) -> str:
@@ -436,6 +512,7 @@ def process_update(
 
     if texto_limpo.startswith("/novo"):
         resetar_sessao()
+        _desativar_conteudo()
         send_message(
             secrets.bot_token,
             secrets.chat_id,
@@ -450,8 +527,9 @@ def process_update(
 
     resposta = run_claude(texto_limpo)
     runtime.last_execution = datetime.now().isoformat(timespec="seconds")
-    if veio_de_voz:
-        # Áudio entra, áudio sai (só voz). Texto vira fallback se a síntese falhar.
+    # No modo conteúdo a resposta vai em TEXTO (pra ler), nunca auto-voz: o único
+    # áudio é o ear-prompter limpo, enviado à parte. Fora dele, áudio→áudio.
+    if veio_de_voz and not _conteudo_ativo():
         enviou_voz = _responder_com_voz(
             resposta, secrets, sintetizar_fala=sintetizar_fala, log_path=log_path
         )

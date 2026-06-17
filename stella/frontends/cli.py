@@ -13,6 +13,7 @@ from stella.adapters.vault.base import VaultRepository
 from stella.agents.designer.spec import DesignSpec
 from stella.app import Stella, build_stella
 from stella.corpo.daemon_telegram import run_daemon
+from stella.corpo.ear_prompter import gerar as gerar_ear_prompter
 from stella.corpo.gravador import (
     COFRE_TELEGRAM,
     PASTA_GRAVACOES,
@@ -94,6 +95,8 @@ app = typer.Typer(help="Stella — assistente pessoal do Bruno.")
 lembrete_app = typer.Typer(help="Lembretes temporizados da Stella.")
 app.add_typer(agent_app, name="agent")
 app.add_typer(lembrete_app, name="lembrete")
+
+_EAR_PROMPTER_SAIDA_PADRAO = Path("tmp/.secrets/ear-prompter.mp3")
 
 
 def _build_stella_para_cli() -> Stella:
@@ -329,6 +332,39 @@ def notificar(texto: str = typer.Argument(..., help="Texto para enviar agora no 
         typer.echo(f"Senhor, nao consegui notificar no Telegram: {e}", err=True)
         raise typer.Exit(code=1) from e
     typer.echo("Notificacao enviada.")
+
+
+@app.command("ear-prompter")
+def ear_prompter(
+    texto: str = typer.Argument(..., help="Roteiro a transformar em audio pausado"),
+    gap: float = typer.Option(5.0, "--gap", "-g", help="Silencio entre frases, em segundos"),
+    saida: Path | None = typer.Option(  # noqa: B008
+        None, "--saida", "-s", help="Arquivo MP3 de saida"
+    ),
+) -> None:
+    """Gera MP3 de teleprompter auditivo com pausas entre frases."""
+    destino = saida or _EAR_PROMPTER_SAIDA_PADRAO
+    try:
+        gerado = gerar_ear_prompter(texto, destino, gap_seg=gap)
+    except ValueError as e:
+        typer.echo(f"Senhor, roteiro invalido: {e}", err=True)
+        raise typer.Exit(code=2) from e
+    except Exception as e:
+        typer.echo(f"Senhor, nao consegui gerar o ear-prompter: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(str(gerado))
+
+
+@app.command("enviar-audio")
+def enviar_audio(
+    caminho: str = typer.Argument(..., help="Caminho do MP3 para enviar no Telegram"),
+) -> None:
+    """Envia um arquivo de audio (ex.: ear-prompter) ao chat do Bruno no Telegram."""
+    from stella.corpo.daemon_telegram import load_secrets, send_voice
+
+    secrets = load_secrets()
+    send_voice(secrets.bot_token, secrets.chat_id, Path(caminho))
+    typer.echo("Audio enviado.")
 
 
 @lembrete_app.command("add")

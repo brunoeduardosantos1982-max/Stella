@@ -163,6 +163,16 @@ def _sintetizar_elevenlabs(fala: str, destino: Path, cfg: dict[str, object]) -> 
     return destino
 
 
+def falar_elevenlabs(fala: str, destino: Path) -> Path:
+    """Sintetiza `fala` JÁ PRONTA (ex.: com break tags) via ElevenLabs, sem limpeza.
+    Levanta RuntimeError se o cofre não estiver configurado."""
+    cfg = _carregar_elevenlabs()
+    if not cfg:
+        raise RuntimeError("ElevenLabs não configurado (.secrets/elevenlabs.json)")
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    return _sintetizar_elevenlabs(fala, destino, cfg)
+
+
 def sintetizar(texto: str, destino: Path, voz: str = VOZ_PADRAO) -> Path:
     """Sintetiza fala em audio. Prioridade: ElevenLabs > Azure > edge-tts.
     Cada backend, se falhar, cai no proximo. ValueError se nada a falar."""

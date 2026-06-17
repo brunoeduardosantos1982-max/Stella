@@ -18,8 +18,12 @@ copy .env.example .env
 ```powershell
 stella anota "ideia que acabou de surgir"
 stella pergunta "Centro Viagens" "o que esta aberto?"
+stella ear-prompter "A. B. C." -g 3.5
 stella --help
 ```
+
+O comando `ear-prompter` usa `pydub` para concatenar MP3s e requer `ffmpeg`
+instalado no sistema e disponivel no `PATH`.
 
 ## Testes
 

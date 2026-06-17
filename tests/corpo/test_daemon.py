@@ -19,6 +19,7 @@ def test_update_chat_nao_autorizado_e_ignorado(monkeypatch, tmp_path: Path) -> N
     enviados: list[str] = []
     monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
     monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(daemon, "_conteudo_ativo", lambda: False)
 
     daemon.process_update(
         _update(999, "execute algo"),
@@ -75,6 +76,7 @@ def test_audio_autorizado_transcreve_executa_e_responde_so_voz(monkeypatch, tmp_
 
     monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
     monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(daemon, "_conteudo_ativo", lambda: False)
     monkeypatch.setattr(
         daemon,
         "baixar_arquivo_voz",
@@ -115,6 +117,7 @@ def test_falha_na_sintese_nao_derruba_resposta_de_texto(monkeypatch, tmp_path: P
 
     monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
     monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(daemon, "_conteudo_ativo", lambda: False)
     monkeypatch.setattr(
         daemon,
         "baixar_arquivo_voz",
@@ -146,6 +149,7 @@ def test_mensagem_de_texto_nao_gera_audio(monkeypatch) -> None:
 
     monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
     monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(daemon, "_conteudo_ativo", lambda: False)
     monkeypatch.setattr(
         daemon, "send_voice", lambda token, chat_id, caminho: audios_enviados.append(caminho)
     )
@@ -169,6 +173,7 @@ def test_audio_com_falha_de_transcricao_avisa_e_nao_executa(monkeypatch, tmp_pat
     enviados: list[str] = []
     monkeypatch.setattr(daemon, "send_message", lambda token, chat_id, text: enviados.append(text))
     monkeypatch.setattr(daemon, "send_chat_action", lambda token, chat_id: None)
+    monkeypatch.setattr(daemon, "_conteudo_ativo", lambda: False)
     monkeypatch.setattr(
         daemon,
         "baixar_arquivo_voz",
