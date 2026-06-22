@@ -13,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
 
@@ -283,3 +285,64 @@ def montar_card(itens: list[ItemRadar], horario_label: str, agora: datetime | No
         )
         blocos.append("")
     return "\n".join(blocos).strip()
+
+
+COFRE_TELEGRAM = Path("D:/VortexBrain00/.secrets/telegram.json")
+VAULT_DIR = Path("D:/VortexBrain00/bssurf00")
+RADAR_DIR_REL = "C04 Claude Obsidian/radar"
+
+
+def enviar_telegram(
+    texto: str,
+    cofre_path: Path = COFRE_TELEGRAM,
+    http_post: Callable[..., Any] = httpx.post,
+) -> None:
+    """Envia mensagem HTML para Telegram.
+
+    Args:
+        texto: Conteudo da mensagem em HTML.
+        cofre_path: Caminho do arquivo com credenciais (bot_token, chat_id).
+        http_post: Funcao injetavel para POST HTTP (para testes).
+    """
+    cofre = json.loads(cofre_path.read_text(encoding="utf-8"))
+    resp = http_post(
+        f"https://api.telegram.org/bot{cofre['bot_token']}/sendMessage",
+        json={
+            "chat_id": str(cofre["chat_id"]),
+            "text": texto,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        },
+        timeout=20,
+    )
+    resp.raise_for_status()
+
+
+def salvar_no_vault(
+    itens: list[ItemRadar],
+    horario_label: str,
+    vault_dir: Path = VAULT_DIR,
+    agora: datetime | None = None,
+) -> Path:
+    """Salva itens curados em arquivo .md no vault.
+
+    Args:
+        itens: Lista de ItemRadar com noticias curadas.
+        horario_label: Rotulo da hora (ex: "06h", "14h").
+        vault_dir: Raiz do vault Obsidian.
+        agora: Data/hora de referencia (FUSO). Se None, usa datetime.now(FUSO).
+
+    Returns:
+        Path do arquivo .md criado/atualizado.
+    """
+    quando = agora or datetime.now(FUSO)
+    destino = vault_dir / RADAR_DIR_REL / f"{quando:%Y-%m-%d}.md"
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    linhas = [f"\n## Drop {horario_label} ({quando:%H:%M})\n"]
+    for it in itens:
+        linhas.append(f"- [{it.titulo}]({it.url}) | {it.veiculo}")
+        linhas.append(f"  - Resumo: {it.resumo}")
+        linhas.append(f"  - Gancho: {it.gancho}")
+    with destino.open("a", encoding="utf-8") as arq:
+        arq.write("\n".join(linhas) + "\n")
+    return destino

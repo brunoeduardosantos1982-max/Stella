@@ -162,3 +162,33 @@ def test_montar_card_vazio_avisa_sem_novidade() -> None:
     card = radar.montar_card([], "14h", agora=datetime(2026, 6, 21, 14, 0, tzinfo=radar.FUSO))
     assert "Sem novidade" in card
     assert "—" not in card
+
+
+def test_enviar_telegram_usa_parse_mode_html(tmp_path: Path) -> None:
+    cofre = tmp_path / "telegram.json"
+    cofre.write_text(json.dumps({"bot_token": "T", "chat_id": "C"}), encoding="utf-8")
+    capturado: dict[str, Any] = {}
+
+    class _Resp:
+        def raise_for_status(self) -> None:
+            return None
+
+    def post_fake(url: str, **kwargs: Any) -> "_Resp":
+        capturado["url"] = url
+        capturado["json"] = kwargs["json"]
+        return _Resp()
+
+    radar.enviar_telegram("oi", cofre_path=cofre, http_post=post_fake)
+    assert "/botT/sendMessage" in capturado["url"]
+    assert capturado["json"]["chat_id"] == "C"
+    assert capturado["json"]["parse_mode"] == "HTML"
+
+
+def test_salvar_no_vault_escreve_md(tmp_path: Path) -> None:
+    itens = [radar.ItemRadar("T", "https://x.com/a", "x.com", "r", "g")]
+    agora = datetime(2026, 6, 21, 6, 0, tzinfo=radar.FUSO)
+    caminho = radar.salvar_no_vault(itens, "06h", vault_dir=tmp_path, agora=agora)
+    conteudo = caminho.read_text(encoding="utf-8")
+    assert "06h" in conteudo
+    assert "https://x.com/a" in conteudo
+    assert caminho.name == "2026-06-21.md"
