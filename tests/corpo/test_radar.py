@@ -258,3 +258,7 @@ def test_rodar_radar_degrada_quando_curador_falha(tmp_path: Path, monkeypatch: A
     )
     assert len(enviados) == 1
     assert "https://x.com/bruto" in enviados[0]  # card degradado com links crus
+    seen_path = tmp_path / "seen.json"
+    assert seen_path.exists()
+    dados = json.loads(seen_path.read_text(encoding="utf-8"))
+    assert dados[0]["url"] == "https://x.com/bruto"
