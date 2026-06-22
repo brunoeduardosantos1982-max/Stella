@@ -15,8 +15,10 @@ from typing import Any
 
 import httpx
 
+from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
+from stella.infra.config import StellaConfig
 
 FUSO = timezone(timedelta(hours=-3))
 
@@ -346,3 +348,126 @@ def salvar_no_vault(
     with destino.open("a", encoding="utf-8") as arq:
         arq.write("\n".join(linhas) + "\n")
     return destino
+
+
+_LABELS_HORA: dict[int, str] = {6: "06h", 14: "14h", 19: "19h"}
+_MODELO_CURADOR = "claude-sonnet-4-6"
+
+
+def label_horario(agora: datetime | None = None) -> str:
+    """Converte hora atual em label legivel para o card.
+
+    Args:
+        agora: Data/hora de referencia (FUSO). Se None, usa datetime.now(FUSO).
+
+    Returns:
+        Label como "06h", "14h", "19h" ou "HHh" para outras horas.
+    """
+    quando = agora or datetime.now(FUSO)
+    return _LABELS_HORA.get(quando.hour, f"{quando:%H}h")
+
+
+def construir_provider() -> LLMProvider:
+    """Constroi AnthropicProvider com credenciais de StellaConfig.
+
+    Returns:
+        Instancia de AnthropicProvider configurada com modelo curador.
+    """
+    cfg = StellaConfig()
+    return AnthropicProvider(
+        api_key=cfg.anthropic_api_key.get_secret_value(), modelo=_MODELO_CURADOR
+    )
+
+
+def _card_degradado(candidatos: list[Candidato], n: int, label: str, agora: datetime) -> str:
+    """Monta card de emergencia com links crus quando curador falha.
+
+    Args:
+        candidatos: Lista de candidatos brutos.
+        n: Numero maximo de itens.
+        label: Label de horario para o cabecalho.
+        agora: Data/hora de referencia.
+
+    Returns:
+        Card HTML com os N primeiros candidatos sem curadoria.
+    """
+    itens = [
+        ItemRadar(
+            titulo=c.titulo,
+            url=c.url,
+            veiculo=c.veiculo,
+            resumo=c.snippet,
+            gancho="(curadoria indisponivel neste drop)",
+        )
+        for c in candidatos[:n]
+    ]
+    return montar_card(itens, label, agora=agora)
+
+
+def rodar_radar(
+    n: int,
+    *,
+    api_key: str | None = None,
+    provider: LLMProvider | None = None,
+    horario_label: str | None = None,
+    buscar: Callable[..., list[dict[str, Any]]] = buscar_noticias_tavily,
+    enviar: Callable[[str], None] | None = None,
+    salvar: bool = True,
+    agora: datetime | None = None,
+) -> list[ItemRadar]:
+    """Orquestra ciclo completo do Radar de Tendencias.
+
+    Busca candidatos, deduplica via seen-log, curar com LLM, envia card
+    e grava seen-log. Em caso de falha do curador, degrada para card com
+    links crus.
+
+    Args:
+        n: Numero de itens a selecionar.
+        api_key: Chave Tavily. Se None, carrega de StellaConfig.
+        provider: LLMProvider injetavel. Se None, usa construir_provider().
+        horario_label: Rotulo de hora. Se None, deriva de agora.
+        buscar: Callable de busca injetavel (padrao: buscar_noticias_tavily).
+        enviar: Callable de envio injetavel (padrao: enviar_telegram).
+        salvar: Se True, salva card no vault Obsidian.
+        agora: Data/hora de referencia (FUSO). Se None, usa datetime.now(FUSO).
+
+    Returns:
+        Lista de ItemRadar curados (vazia em caso de degradacao ou sem novidade).
+    """
+    quando = agora or datetime.now(FUSO)
+    label = horario_label or label_horario(quando)
+
+    if api_key is None:
+        api_key = StellaConfig().tavily_api_key.get_secret_value()
+    if provider is None:
+        provider = construir_provider()
+    if enviar is None:
+        enviar = enviar_telegram
+
+    # Captura seen_path do global no momento da chamada (permite monkeypatch nos testes)
+    seen_path = SEEN_PATH
+
+    candidatos = buscar_candidatos(api_key=api_key, buscar=buscar)
+    seen = podar_seen(carregar_seen(seen_path), agora=quando)
+    novos = filtrar_novos(candidatos, seen)
+
+    itens: list[ItemRadar] = []
+    if novos:
+        try:
+            itens = curar(novos, n, provider=provider)
+        except Exception:
+            card = _card_degradado(novos, n, label, quando)
+            enviar(card)
+            gravar_seen(seen, [c.url for c in novos[:n]], path=seen_path, agora=quando)
+            return itens
+
+    card = montar_card(itens, label, agora=quando)
+    enviar(card)
+    if itens:
+        gravar_seen(seen, [it.url for it in itens], path=seen_path, agora=quando)
+        if salvar:
+            try:
+                salvar_no_vault(itens, label, agora=quando)
+            except Exception:
+                pass
+    return itens

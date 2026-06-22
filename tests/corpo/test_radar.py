@@ -192,3 +192,69 @@ def test_salvar_no_vault_escreve_md(tmp_path: Path) -> None:
     assert "06h" in conteudo
     assert "https://x.com/a" in conteudo
     assert caminho.name == "2026-06-21.md"
+
+
+def test_rodar_radar_fluxo_feliz(tmp_path: Path, monkeypatch: Any) -> None:
+    enviados: list[str] = []
+    seen_path = tmp_path / "seen.json"
+    monkeypatch.setattr(radar, "SEEN_PATH", seen_path)
+
+    def buscar_fake(query: str, api_key: str, **kw: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "titulo": f"T {query}",
+                "url": f"https://x.com/{query}",
+                "veiculo": "x.com",
+                "snippet": "s",
+                "data": "2026-06-21",
+            }
+        ]
+
+    provider = _ProviderFake(
+        '[{"titulo":"T","url":"https://x.com/marketing","veiculo":"x.com",'
+        '"resumo":"r","gancho":"g"}]'
+    )
+    itens = radar.rodar_radar(
+        n=1,
+        api_key="k",
+        provider=provider,
+        buscar=buscar_fake,
+        enviar=enviados.append,
+        salvar=False,
+        agora=datetime(2026, 6, 21, 6, 0, tzinfo=radar.FUSO),
+    )
+    assert len(itens) == 1
+    assert len(enviados) == 1 and "RADAR 06h" in enviados[0]
+    assert json.loads(seen_path.read_text(encoding="utf-8"))[0]["url"] == "https://x.com/marketing"
+
+
+def test_rodar_radar_degrada_quando_curador_falha(tmp_path: Path, monkeypatch: Any) -> None:
+    enviados: list[str] = []
+    monkeypatch.setattr(radar, "SEEN_PATH", tmp_path / "seen.json")
+
+    def buscar_fake(query: str, api_key: str, **kw: Any) -> list[dict[str, Any]]:
+        return [
+            {
+                "titulo": "Bruto",
+                "url": "https://x.com/bruto",
+                "veiculo": "x.com",
+                "snippet": "s",
+                "data": "d",
+            }
+        ]
+
+    class _ProviderQuebra(_ProviderFake):
+        def complete(self, prompt: str) -> Any:
+            raise RuntimeError("LLM fora do ar")
+
+    radar.rodar_radar(
+        n=1,
+        api_key="k",
+        provider=_ProviderQuebra(""),
+        buscar=buscar_fake,
+        enviar=enviados.append,
+        salvar=False,
+        agora=datetime(2026, 6, 21, 14, 0, tzinfo=radar.FUSO),
+    )
+    assert len(enviados) == 1
+    assert "https://x.com/bruto" in enviados[0]  # card degradado com links crus
