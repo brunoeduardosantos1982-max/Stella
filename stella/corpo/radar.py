@@ -255,3 +255,31 @@ def curar(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -> list
         for d in dados
     ]
     return itens[:n]
+
+
+def montar_card(itens: list[ItemRadar], horario_label: str, agora: datetime | None = None) -> str:
+    """Monta card HTML do Telegram a partir dos itens curados.
+
+    Args:
+        itens: Lista de ItemRadar com notícias curadas.
+        horario_label: Rótulo da hora (ex: "06h", "14h").
+        agora: Data/hora de referência (FUSO). Se None, usa datetime.now(FUSO).
+
+    Returns:
+        String formatada com HTML tags (<b>, <a>, <i>) para Telegram parse_mode=HTML.
+        Sem em-dash (—), pronto para envio público.
+    """
+    quando = agora or datetime.now(FUSO)
+    cabecalho = f"📰 <b>RADAR {horario_label} · {quando:%d/%m}</b>"
+    if not itens:
+        return f"{cabecalho}\n\nSem novidade quente neste drop, Senhor."
+    blocos = [cabecalho, ""]
+    for i, it in enumerate(itens, start=1):
+        blocos.append(
+            f"<b>{i}. {it.titulo}</b>\n"
+            f'🔗 <a href="{it.url}">{it.veiculo}</a>\n'
+            f"{it.resumo}\n"
+            f"💡 <i>{it.gancho}</i>"
+        )
+        blocos.append("")
+    return "\n".join(blocos).strip()

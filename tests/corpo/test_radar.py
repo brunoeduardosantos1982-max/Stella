@@ -136,3 +136,29 @@ def test_curar_parseia_json_e_limita_em_n() -> None:
     assert itens[0].titulo == "A"
     assert itens[0].gancho == "gancho a"
     assert "https://x.com/a" in provider.prompt_recebido  # candidatos vão no prompt
+
+
+def test_montar_card_formata_itens_sem_travessao() -> None:
+    itens = [
+        radar.ItemRadar(
+            titulo="IA muda SEO",
+            url="https://searchengineland.com/x",
+            veiculo="searchengineland.com",
+            resumo="Google corta cliques.",
+            gancho="Se você ainda otimiza pro Google de 2023, repense.",
+        )
+    ]
+    agora = datetime(2026, 6, 21, 6, 0, tzinfo=radar.FUSO)
+    card = radar.montar_card(itens, "06h", agora=agora)
+    assert "RADAR 06h" in card
+    assert "21/06" in card
+    assert 'href="https://searchengineland.com/x"' in card
+    assert "searchengineland.com" in card
+    assert "IA muda SEO" in card
+    assert "—" not in card  # sem travessão em texto público
+
+
+def test_montar_card_vazio_avisa_sem_novidade() -> None:
+    card = radar.montar_card([], "14h", agora=datetime(2026, 6, 21, 14, 0, tzinfo=radar.FUSO))
+    assert "Sem novidade" in card
+    assert "—" not in card
