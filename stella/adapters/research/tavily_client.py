@@ -6,8 +6,10 @@ para ser registrado em MCPRegistry como MCP de category: research.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -40,3 +42,44 @@ class TavilyClient(ConexaoMCP):
             }
             for r in resp.json().get("results", [])
         ]
+
+
+def buscar_noticias_tavily(
+    query: str,
+    api_key: str,
+    *,
+    days: int = 2,
+    max_results: int = 10,
+    include_domains: list[str] | None = None,
+    http_post: Callable[..., Any] = httpx.post,
+) -> list[dict[str, Any]]:
+    """Busca notícias recentes no Tavily (topic=news) e normaliza os campos.
+
+    `include_domains` enviesa a busca para a allowlist curada (híbrido A+B).
+    """
+    payload: dict[str, Any] = {
+        "api_key": api_key,
+        "query": query,
+        "topic": "news",
+        "days": days,
+        "max_results": max_results,
+    }
+    if include_domains:
+        payload["include_domains"] = include_domains
+
+    resp = http_post(_TAVILY_ENDPOINT, json=payload, timeout=_TIMEOUT_S)
+    resp.raise_for_status()
+    resultados = resp.json().get("results", [])
+    itens: list[dict[str, Any]] = []
+    for r in resultados:
+        url = r.get("url", "")
+        itens.append(
+            {
+                "titulo": r.get("title", ""),
+                "url": url,
+                "veiculo": urlparse(url).netloc.removeprefix("www."),
+                "snippet": r.get("content", ""),
+                "data": r.get("published_date", ""),
+            }
+        )
+    return itens
