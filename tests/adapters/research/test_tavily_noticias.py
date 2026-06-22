@@ -1,5 +1,8 @@
 from typing import Any
 
+import httpx
+import pytest
+
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
 
 
@@ -54,3 +57,15 @@ def test_buscar_noticias_mapeia_campos_e_extrai_veiculo() -> None:
             "data": "2026-06-21",
         }
     ]
+
+
+def test_buscar_noticias_propaga_http_error() -> None:
+    """Garante que erros HTTP (ex: 401/429) propagam para o caller."""
+
+    def http_post_erro(url: str, **kwargs: Any) -> Any:
+        req = httpx.Request("POST", url)
+        resp = httpx.Response(429, request=req)
+        raise httpx.HTTPStatusError("429 Too Many Requests", request=req, response=resp)
+
+    with pytest.raises(httpx.HTTPStatusError):
+        buscar_noticias_tavily("ia", api_key="k", http_post=http_post_erro)

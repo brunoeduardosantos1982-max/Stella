@@ -7,9 +7,11 @@ via Tavily, aplica filtros de domínio e deduplica por URL.
 from __future__ import annotations
 
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from html import escape as _esc
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,8 @@ from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
 from stella.infra.config import StellaConfig
+
+logger = logging.getLogger("stella.radar")
 
 FUSO = timezone(timedelta(hours=-3))
 
@@ -101,8 +105,9 @@ def buscar_candidatos(
                 days=days,
                 include_domains=include_domains,
             )
-        except Exception:
-            continue  # um tema que falha não derruba os outros
+        except Exception as exc:
+            logger.warning("radar: busca do tema %r falhou: %s", tema, exc)
+            continue  # um tema que falha nao derruba os outros
         for r in brutos:
             url = r.get("url", "")
             if not url or url in vistos:
@@ -239,7 +244,10 @@ def _extrair_json(texto: str) -> Any:
     inicio, fim = t.find("["), t.rfind("]")
     if inicio == -1 or fim == -1:
         raise ValueError("resposta do curador sem array JSON")
-    return json.loads(t[inicio : fim + 1])
+    parsed = json.loads(t[inicio : fim + 1])
+    if not isinstance(parsed, list):
+        raise ValueError("resposta do curador nao e um array JSON")
+    return parsed
 
 
 def curar(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -> list[ItemRadar]:
@@ -280,10 +288,10 @@ def montar_card(itens: list[ItemRadar], horario_label: str, agora: datetime | No
     blocos = [cabecalho, ""]
     for i, it in enumerate(itens, start=1):
         blocos.append(
-            f"<b>{i}. {it.titulo}</b>\n"
-            f'🔗 <a href="{it.url}">{it.veiculo}</a>\n'
-            f"{it.resumo}\n"
-            f"💡 <i>{it.gancho}</i>"
+            f"<b>{i}. {_esc(it.titulo)}</b>\n"
+            f'🔗 <a href="{_esc(it.url, quote=True)}">{_esc(it.veiculo)}</a>\n'
+            f"{_esc(it.resumo)}\n"
+            f"💡 <i>{_esc(it.gancho)}</i>"
         )
         blocos.append("")
     return "\n".join(blocos).strip()
@@ -380,7 +388,7 @@ def construir_provider() -> LLMProvider:
 
 
 def _card_degradado(candidatos: list[Candidato], n: int, label: str, agora: datetime) -> str:
-    """Monta card de emergencia com links crus quando curador falha.
+    """Monta um card com links crus quando a curadoria falha.
 
     Args:
         candidatos: Lista de candidatos brutos.
@@ -389,7 +397,7 @@ def _card_degradado(candidatos: list[Candidato], n: int, label: str, agora: date
         agora: Data/hora de referencia.
 
     Returns:
-        Card HTML com os N primeiros candidatos sem curadoria.
+        Card no mesmo formato Telegram-markup que montar_card, sem curadoria LLM.
     """
     itens = [
         ItemRadar(
@@ -468,6 +476,6 @@ def rodar_radar(
         if salvar:
             try:
                 salvar_no_vault(itens, label, agora=quando)
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("radar: salvar_no_vault falhou: %s", exc)
     return itens

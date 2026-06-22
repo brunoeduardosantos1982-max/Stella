@@ -96,7 +96,7 @@ def test_gravar_seen_preserva_entradas_existentes(tmp_path: Path) -> None:
     assert "https://x.com/novo" in urls
 
 
-def test_podar_seen_tolera_entrada_sem_offset(tmp_path: Path) -> None:
+def test_podar_seen_tolera_entrada_sem_offset() -> None:
     agora = datetime(2026, 6, 21, 12, 0, tzinfo=radar.FUSO)
     seen = [
         {"url": "naive", "enviado_em": "2026-06-20T12:00:00"},  # sem offset
@@ -156,6 +156,27 @@ def test_montar_card_formata_itens_sem_travessao() -> None:
     assert "searchengineland.com" in card
     assert "IA muda SEO" in card
     assert "—" not in card  # sem travessão em texto público
+
+
+def test_montar_card_escapa_html_dos_campos() -> None:
+    itens = [
+        radar.ItemRadar(
+            titulo="growth < scale",
+            url="https://x.com/a",
+            veiculo="x.com",
+            resumo="resumo normal",
+            gancho="B2B & B2C juntos",
+        )
+    ]
+    agora = datetime(2026, 6, 21, 6, 0, tzinfo=radar.FUSO)
+    card = radar.montar_card(itens, "06h", agora=agora)
+    # campos LLM devem ser escapados
+    assert "&amp;" in card
+    assert "&lt;" in card
+    # estrutura HTML estatica preservada
+    assert "<b>" in card
+    assert "<i>" in card
+    assert "<a href=" in card
 
 
 def test_montar_card_vazio_avisa_sem_novidade() -> None:
