@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from stella.adapters.llm.base import LLMProvider
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
 
 FUSO = timezone(timedelta(hours=-3))
@@ -196,3 +197,61 @@ def gravar_seen(
     atualizado = list(seen) + [{"url": u, "enviado_em": quando} for u in urls]
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(atualizado, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+@dataclass
+class ItemRadar:
+    titulo: str
+    url: str
+    veiculo: str
+    resumo: str
+    gancho: str
+
+
+_INSTRUCAO_CURADORIA = (
+    "Você é a Stella, assistente de conteúdo do Bruno (consultor de marketing com IA, "
+    "com toque lifestyle). Dos candidatos abaixo, escolha os {n} mais frescos e quentes "
+    "para virar post hoje. Para cada um devolva: titulo, url e veiculo (copie exatamente "
+    "do candidato), resumo (1 a 2 linhas em português) e gancho (um ângulo de post curto "
+    "em português, na voz de estrategista). Não use travessão. Responda APENAS um array "
+    "JSON com objetos {{titulo, url, veiculo, resumo, gancho}}, sem texto fora do JSON.\n\n"
+    "Candidatos:\n{lista}"
+)
+
+
+def montar_prompt_curadoria(candidatos: list[Candidato], n: int) -> str:
+    linhas = [
+        f"{i}. [{c.tema}] {c.titulo} | {c.veiculo} | {c.url} | {c.snippet}"
+        for i, c in enumerate(candidatos, start=1)
+    ]
+    return _INSTRUCAO_CURADORIA.format(n=n, lista="\n".join(linhas))
+
+
+def _extrair_json(texto: str) -> Any:
+    t = texto.strip()
+    if t.startswith("```"):
+        t = t.split("```", 2)[1]
+        t = t.removeprefix("json").strip()
+    inicio, fim = t.find("["), t.rfind("]")
+    if inicio == -1 or fim == -1:
+        raise ValueError("resposta do curador sem array JSON")
+    return json.loads(t[inicio : fim + 1])
+
+
+def curar(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -> list[ItemRadar]:
+    """Pede ao LLM os top N com resumo e gancho; devolve no máximo N itens."""
+    if not candidatos:
+        return []
+    resposta = provider.complete(montar_prompt_curadoria(candidatos, n))
+    dados = _extrair_json(resposta.texto)
+    itens = [
+        ItemRadar(
+            titulo=str(d.get("titulo", "")),
+            url=str(d.get("url", "")),
+            veiculo=str(d.get("veiculo", "")),
+            resumo=str(d.get("resumo", "")),
+            gancho=str(d.get("gancho", "")),
+        )
+        for d in dados
+    ]
+    return itens[:n]

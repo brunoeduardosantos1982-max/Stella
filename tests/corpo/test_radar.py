@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from stella.adapters.llm.base import LLMProvider, LLMResponse, Message
 from stella.corpo import radar
 
 
@@ -104,3 +105,34 @@ def test_podar_seen_tolera_entrada_sem_offset(tmp_path: Path) -> None:
     podado = radar.podar_seen(seen, janela_dias=7, agora=agora)
     # A entrada naive deve ser descartada, apenas a aware permanece
     assert [s["url"] for s in podado] == ["aware"]
+
+
+class _ProviderFake(LLMProvider):
+    def __init__(self, texto: str) -> None:
+        self._texto = texto
+        self.prompt_recebido = ""
+
+    def complete(self, prompt: str) -> LLMResponse:
+        self.prompt_recebido = prompt
+        return LLMResponse(texto=self._texto)
+
+    def chat(self, messages: list[Message]) -> LLMResponse:  # pragma: no cover
+        return LLMResponse(texto=self._texto)
+
+
+def test_curar_parseia_json_e_limita_em_n() -> None:
+    resposta = """```json
+    [
+      {"titulo": "A", "url": "https://x.com/a", "veiculo": "x.com",
+       "resumo": "resumo a", "gancho": "gancho a"},
+      {"titulo": "B", "url": "https://x.com/b", "veiculo": "x.com",
+       "resumo": "resumo b", "gancho": "gancho b"}
+    ]
+    ```"""
+    provider = _ProviderFake(resposta)
+    cands = [_cand("https://x.com/a"), _cand("https://x.com/b"), _cand("https://x.com/c")]
+    itens = radar.curar(cands, n=2, provider=provider)
+    assert len(itens) == 2
+    assert itens[0].titulo == "A"
+    assert itens[0].gancho == "gancho a"
+    assert "https://x.com/a" in provider.prompt_recebido  # candidatos vão no prompt
