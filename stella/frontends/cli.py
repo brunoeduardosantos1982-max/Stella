@@ -322,6 +322,21 @@ def seguranca() -> None:
 
 
 @app.command()
+def radar(
+    n: int = typer.Option(5, "--n", help="Quantos artigos neste drop (6h=5, 14h=3, 19h=3)."),
+) -> None:
+    """Busca notícias quentes dos nichos do Bruno e manda o card no Telegram."""
+    from stella.corpo.radar import label_horario, montar_card, rodar_radar
+
+    try:
+        itens = rodar_radar(n=n)
+    except Exception as e:
+        typer.echo(f"Senhor, o radar falhou: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(montar_card(itens, label_horario()))
+
+
+@app.command()
 def notificar(texto: str = typer.Argument(..., help="Texto para enviar agora no Telegram")) -> None:
     """Envia uma notificação imediata no Telegram."""
     from stella.corpo.lembretes import notificar as notificar_telegram
