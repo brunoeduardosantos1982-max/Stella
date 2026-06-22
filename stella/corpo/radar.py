@@ -157,10 +157,10 @@ def podar_seen(
     for s in seen:
         try:
             quando = datetime.fromisoformat(s["enviado_em"])
-        except (KeyError, ValueError):
+            if quando >= ref:
+                out.append(s)
+        except (KeyError, ValueError, TypeError):
             continue
-        if quando >= ref:
-            out.append(s)
     return out
 
 

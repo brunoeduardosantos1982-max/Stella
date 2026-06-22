@@ -65,3 +65,42 @@ def test_buscar_candidatos_agrega_temas_e_deduplica_por_url() -> None:
     assert all(isinstance(c, radar.Candidato) for c in cands)
     # o tema fica registrado
     assert {c.tema for c in cands} == {"marketing", "IA"}
+
+
+def test_carregar_seen_tolera_ausente_e_json_invalido(tmp_path: Path) -> None:
+    # Arquivo ausente
+    p_ausente = tmp_path / "nao_existe.json"
+    assert radar.carregar_seen(p_ausente) == []
+
+    # JSON inválido
+    p_invalido = tmp_path / "invalido.json"
+    p_invalido.write_text("{nao json", encoding="utf-8")
+    assert radar.carregar_seen(p_invalido) == []
+
+    # JSON válido mas não é lista
+    p_dict = tmp_path / "dict.json"
+    p_dict.write_text("{}", encoding="utf-8")
+    assert radar.carregar_seen(p_dict) == []
+
+
+def test_gravar_seen_preserva_entradas_existentes(tmp_path: Path) -> None:
+    p = tmp_path / "seen.json"
+    agora = datetime(2026, 6, 21, 6, 0, tzinfo=radar.FUSO)
+    entrada_anterior = {"url": "https://x.com/velho", "enviado_em": "2026-06-20T10:00:00-03:00"}
+    radar.gravar_seen([entrada_anterior], ["https://x.com/novo"], path=p, agora=agora)
+    dados = json.loads(p.read_text(encoding="utf-8"))
+    assert len(dados) == 2
+    urls = [d["url"] for d in dados]
+    assert "https://x.com/velho" in urls
+    assert "https://x.com/novo" in urls
+
+
+def test_podar_seen_tolera_entrada_sem_offset(tmp_path: Path) -> None:
+    agora = datetime(2026, 6, 21, 12, 0, tzinfo=radar.FUSO)
+    seen = [
+        {"url": "naive", "enviado_em": "2026-06-20T12:00:00"},  # sem offset
+        {"url": "aware", "enviado_em": "2026-06-20T12:00:00-03:00"},  # com offset
+    ]
+    podado = radar.podar_seen(seen, janela_dias=7, agora=agora)
+    # A entrada naive deve ser descartada, apenas a aware permanece
+    assert [s["url"] for s in podado] == ["aware"]
