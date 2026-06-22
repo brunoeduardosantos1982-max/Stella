@@ -6,9 +6,11 @@ via Tavily, aplica filtros de domínio e deduplica por URL.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
@@ -112,3 +114,85 @@ def buscar_candidatos(
                 )
             )
     return candidatos
+
+
+SEEN_PATH = Path("D:/VortexBrain00/.secrets/radar_seen.json")
+JANELA_SEEN_DIAS = 7
+
+
+def carregar_seen(path: Path = SEEN_PATH) -> list[dict[str, str]]:
+    """Carrega o log de URLs já vistas do disco.
+
+    Args:
+        path: Caminho do arquivo JSON de seen-log.
+
+    Returns:
+        Lista de dicts com chaves "url" e "enviado_em", ou [] se arquivo
+        não existir ou conteúdo ser inválido.
+    """
+    try:
+        dados = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+    return dados if isinstance(dados, list) else []
+
+
+def podar_seen(
+    seen: list[dict[str, str]],
+    janela_dias: int = JANELA_SEEN_DIAS,
+    agora: datetime | None = None,
+) -> list[dict[str, str]]:
+    """Remove entradas do seen-log que ficaram fora da janela de retenção.
+
+    Args:
+        seen: Lista de dicts com "url" e "enviado_em" (ISO 8601).
+        janela_dias: Número de dias a reter.
+        agora: Data/hora de referência (FUSO). Se None, usa datetime.now(FUSO).
+
+    Returns:
+        Lista filtrada contendo apenas entradas dentro da janela.
+    """
+    ref = (agora or datetime.now(FUSO)) - timedelta(days=janela_dias)
+    out: list[dict[str, str]] = []
+    for s in seen:
+        try:
+            quando = datetime.fromisoformat(s["enviado_em"])
+        except (KeyError, ValueError):
+            continue
+        if quando >= ref:
+            out.append(s)
+    return out
+
+
+def filtrar_novos(candidatos: list[Candidato], seen: list[dict[str, str]]) -> list[Candidato]:
+    """Filtra candidatos removendo URLs já presentes no seen-log.
+
+    Args:
+        candidatos: Lista de Candidato.
+        seen: Lista de dicts com chaves "url" e "enviado_em".
+
+    Returns:
+        Sublista de candidatos cujas URLs não estão em seen.
+    """
+    urls_vistas = {s.get("url") for s in seen}
+    return [c for c in candidatos if c.url not in urls_vistas]
+
+
+def gravar_seen(
+    seen: list[dict[str, str]],
+    urls: list[str],
+    path: Path = SEEN_PATH,
+    agora: datetime | None = None,
+) -> None:
+    """Grava URLs novas no seen-log com timestamp ISO 8601.
+
+    Args:
+        seen: Lista atual de dicts "url"/"enviado_em".
+        urls: Lista de URLs novas a adicionar.
+        path: Arquivo de destino para o JSON.
+        agora: Data/hora para registrar (FUSO). Se None, usa datetime.now(FUSO).
+    """
+    quando = (agora or datetime.now(FUSO)).isoformat()
+    atualizado = list(seen) + [{"url": u, "enviado_em": quando} for u in urls]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(atualizado, ensure_ascii=False, indent=2), encoding="utf-8")
