@@ -68,6 +68,25 @@ def test_buscar_candidatos_agrega_temas_e_deduplica_por_url() -> None:
     assert {c.tema for c in cands} == {"marketing", "IA"}
 
 
+def test_ia_e_tecnologia_buscam_web_aberta_sem_allowlist() -> None:
+    capturado: dict[str, Any] = {}
+
+    def buscar_fake(query: str, api_key: str, **kwargs: Any) -> list[dict[str, Any]]:
+        capturado[query] = kwargs.get("include_domains")
+        return []
+
+    radar.buscar_candidatos(
+        temas=["marketing", "inteligência artificial", "tecnologia"],
+        api_key="k",
+        buscar=buscar_fake,
+    )
+
+    # IA e tecnologia vao sem allowlist (web aberta); o resto fica na allowlist
+    assert capturado["inteligência artificial"] is None
+    assert capturado["tecnologia"] is None
+    assert capturado["marketing"] == radar.ALLOWLIST_DOMINIOS
+
+
 def test_carregar_seen_tolera_ausente_e_json_invalido(tmp_path: Path) -> None:
     # Arquivo ausente
     p_ausente = tmp_path / "nao_existe.json"

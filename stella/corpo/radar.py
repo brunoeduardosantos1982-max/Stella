@@ -62,6 +62,12 @@ ALLOWLIST_DOMINIOS: list[str] = [
 
 JANELA_DIAS = 2
 
+# IA e tecnologia mudam rápido demais para ficarem presas à allowlist: o que
+# estoura primeiro costuma vir de blog de lab, newsletter ou outlet fora da lista.
+# Esses temas buscam na WEB ABERTA (sem include_domains) e o curador filtra a
+# qualidade. Os demais temas seguem na allowlist curada.
+TEMAS_WEB_ABERTA = {"inteligência artificial", "tecnologia"}
+
 
 @dataclass
 class Candidato:
@@ -98,12 +104,13 @@ def buscar_candidatos(
     vistos: set[str] = set()
     candidatos: list[Candidato] = []
     for tema in temas:
+        dominios = None if tema in TEMAS_WEB_ABERTA else include_domains
         try:
             brutos = buscar(
                 tema,
                 api_key=api_key,
                 days=days,
-                include_domains=include_domains,
+                include_domains=dominios,
             )
         except Exception as exc:
             logger.warning("radar: busca do tema %r falhou: %s", tema, exc)
