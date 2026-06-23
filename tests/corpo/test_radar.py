@@ -157,6 +157,50 @@ def test_curar_parseia_json_e_limita_em_n() -> None:
     assert "https://x.com/a" in provider.prompt_recebido  # candidatos vão no prompt
 
 
+class _ProviderEcoFake(LLMProvider):
+    """Ecoa um item por URL que aparece no prompt (reflete os candidatos do pool)."""
+
+    def complete(self, prompt: str) -> LLMResponse:
+        import re
+
+        urls = re.findall(r"https://\S+", prompt)
+        itens = [
+            {"titulo": "t", "url": u, "veiculo": "x.com", "resumo": "r", "gancho": "g"}
+            for u in urls
+        ]
+        return LLMResponse(texto=json.dumps(itens))
+
+    def chat(self, messages: list[Message]) -> LLMResponse:  # pragma: no cover
+        return LLMResponse(texto="[]")
+
+
+def _cand_tema(url: str, tema: str) -> radar.Candidato:
+    return radar.Candidato(titulo="t", url=url, veiculo="v", snippet="s", data="d", tema=tema)
+
+
+def test_curar_reserva_vaga_para_ia_tech() -> None:
+    eco = _ProviderEcoFake()
+    cands = [
+        _cand_tema("https://x.com/m1", "marketing"),
+        _cand_tema("https://x.com/m2", "marketing"),
+        _cand_tema("https://x.com/tec", "tecnologia"),
+    ]
+    itens = radar.curar(cands, n=2, provider=eco)
+    urls = {it.url for it in itens}
+    assert "https://x.com/tec" in urls  # IA/tech sempre presente no drop
+    assert len(itens) == 2
+
+
+def test_curar_sem_ia_tech_nao_quebra() -> None:
+    eco = _ProviderEcoFake()
+    cands = [
+        _cand_tema("https://x.com/m1", "marketing"),
+        _cand_tema("https://x.com/m2", "publicidade"),
+    ]
+    itens = radar.curar(cands, n=2, provider=eco)
+    assert len(itens) == 2
+
+
 def test_montar_card_formata_itens_sem_travessao() -> None:
     itens = [
         radar.ItemRadar(

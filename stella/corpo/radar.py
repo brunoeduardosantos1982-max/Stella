@@ -257,9 +257,9 @@ def _extrair_json(texto: str) -> Any:
     return parsed
 
 
-def curar(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -> list[ItemRadar]:
-    """Pede ao LLM os top N com resumo e gancho; devolve no máximo N itens."""
-    if not candidatos:
+def _curar_pool(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -> list[ItemRadar]:
+    """Pede ao LLM os top N de um pool, com resumo e gancho; devolve no máximo N."""
+    if not candidatos or n <= 0:
         return []
     resposta = provider.complete(montar_prompt_curadoria(candidatos, n))
     dados = _extrair_json(resposta.texto)
@@ -274,6 +274,31 @@ def curar(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -> list
         for d in dados
     ]
     return itens[:n]
+
+
+def curar(
+    candidatos: list[Candidato],
+    n: int,
+    *,
+    provider: LLMProvider,
+    garantir_temas: set[str] = TEMAS_WEB_ABERTA,
+) -> list[ItemRadar]:
+    """Top N com resumo e gancho, reservando 1 vaga para IA/tecnologia.
+
+    Se houver candidatos dos `garantir_temas`, 1 vaga é curada só entre eles
+    (garantia determinística de IA/tech no drop) e o restante é curado entre os
+    demais. Sem candidatos desses temas, cura N do pool inteiro.
+    """
+    if not candidatos:
+        return []
+    do_tema = [c for c in candidatos if c.tema in garantir_temas]
+    if not do_tema:
+        return _curar_pool(candidatos, n, provider=provider)
+    reservados = _curar_pool(do_tema, 1, provider=provider)
+    usados = {it.url for it in reservados}
+    resto = [c for c in candidatos if c.url not in usados]
+    complementares = _curar_pool(resto, n - len(reservados), provider=provider)
+    return (reservados + complementares)[:n]
 
 
 def montar_card(itens: list[ItemRadar], horario_label: str, agora: datetime | None = None) -> str:
