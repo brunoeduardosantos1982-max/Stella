@@ -225,6 +225,16 @@ def gerar_imagem(
 _FILA_DIR = "C04 Claude Obsidian/Stella-publicacao/fila"
 
 
+def _fab_dir() -> Path:
+    """Pasta da fábrica de conteúdo v2 no vault."""
+    return StellaConfig().vault_path / "C04 Claude Obsidian/outputs/FABRICADECONTEUDO"
+
+
+def _registro_path() -> Path:
+    """JSON do registro de keywords (fonte da verdade da fábrica)."""
+    return _fab_dir() / "registro-keywords.json"
+
+
 def resolver_imagens_para_fila(
     *,
     vault: VaultRepository,
@@ -446,6 +456,103 @@ def daemon() -> None:
         run_daemon()
     except KeyboardInterrupt:
         typer.echo("Senhor, daemon encerrado com segurança.")
+
+
+@app.command()
+def carrossel(
+    json_path: str = typer.Argument(..., help="JSON do post (slides capa/conteudo/cta)"),
+    outdir: str = typer.Argument(..., help="Pasta de saída dos slide-NN.png"),
+    chrome: str | None = typer.Option(None, "--chrome", help="Caminho do Chrome/Edge"),
+) -> None:
+    """Renderiza os slides de um carrossel (Field Manual escuro) em PNG."""
+    import json as _json
+
+    from stella.adapters.render.carrossel import renderizar_post
+
+    post = _json.loads(Path(json_path).read_text(encoding="utf-8"))
+    try:
+        feitos = renderizar_post(post, outdir, chrome=chrome)
+    except (ValueError, RuntimeError) as e:
+        typer.echo(f"Senhor, não consegui renderizar: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    for caminho, ok in feitos:
+        typer.echo(f"{caminho.name}: {'OK' if ok else 'FALHOU'}")
+
+
+@app.command()
+def material(
+    keyword: str = typer.Argument(..., help="Keyword do ManyChat (ex.: ERROS)"),
+    html: str = typer.Option(..., "--html", help="Arquivo HTML do material"),
+    slug: str = typer.Option(..., "--slug", help="Slug do PDF (ex.: diagnostico-erros-ia)"),
+    material_txt: str = typer.Option("", "--material", help="Conceito/título do material"),
+    chrome: str | None = typer.Option(None, "--chrome", help="Caminho do Chrome/Edge"),
+) -> None:
+    """Renderiza o material HTML->PDF, valida layout/fontes e registra a keyword."""
+    from stella.adapters.render.material import (
+        contar_paginas_pdf,
+        fontes_embutidas,
+        renderizar_pdf,
+        validar_layout,
+    )
+    from stella.domain.registro_keywords import RegistroKeywords, normalizar_keyword
+
+    pdf_out = _fab_dir() / normalizar_keyword(keyword) / f"{slug}.pdf"
+    html_str = Path(html).read_text(encoding="utf-8")
+    try:
+        pdf_bytes = renderizar_pdf(html, pdf_out, chrome=chrome)
+        if not fontes_embutidas(pdf_bytes):
+            raise ValueError("fontes não embutidas (a CSS compartilhada não carregou?)")
+        paginas = contar_paginas_pdf(pdf_bytes)
+        validar_layout(html_str, paginas)
+    except (ValueError, RuntimeError) as e:
+        typer.echo(f"Senhor, material reprovado: {e}", err=True)
+        raise typer.Exit(code=2) from e
+    reg_path = _registro_path()
+    reg = RegistroKeywords.carregar(reg_path)
+    reg.definir_material(keyword, slug=slug, material=material_txt)
+    reg.salvar(reg_path)
+    typer.echo(f"OK: {pdf_out} ({paginas} páginas)")
+
+
+@app.command()
+def manychat(
+    keyword: str = typer.Argument(..., help="Keyword do ManyChat"),
+) -> None:
+    """Gera/atualiza a config do ManyChat da keyword a partir do registro."""
+    from stella.corpo.manychat import escrever_manychat
+    from stella.domain.registro_keywords import RegistroKeywords, normalizar_keyword
+
+    reg = RegistroKeywords.carregar(_registro_path())
+    entrada = reg.buscar(keyword)
+    if entrada is None:
+        typer.echo(f"Senhor, a keyword '{keyword}' não está no registro ainda.", err=True)
+        raise typer.Exit(code=1)
+    destino = _fab_dir() / normalizar_keyword(keyword)
+    caminho = escrever_manychat(entrada, destino)
+    typer.echo(str(caminho))
+
+
+@app.command("publicar-material")
+def publicar_material_cmd(
+    slug: str = typer.Argument(..., help="Slug do material PDF a publicar"),
+) -> None:
+    """Hospeda o PDF do material no hub (commit + deploy). Gate 2: só após ok do Bruno."""
+    from stella.corpo.publicar_material import HUB_REPO, deploy_hub, publicar_material
+
+    try:
+        url = publicar_material(
+            slug,
+            fab_dir=_fab_dir(),
+            hub_materiais=HUB_REPO / "public" / "materiais",
+            deploy_fn=deploy_hub,
+        )
+    except FileNotFoundError as e:
+        typer.echo(f"Senhor, não achei o PDF do material: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    except Exception as e:
+        typer.echo(f"Senhor, o deploy falhou: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(url)
 
 
 def main() -> None:
