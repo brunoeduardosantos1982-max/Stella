@@ -20,6 +20,13 @@ import httpx
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.base import LLMProvider
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
+from stella.corpo.radar_drops import (
+    DROPS_PATH,
+    carregar_drops,
+    garantir_unicos,
+    salvar_drops,
+    slug_apelido,
+)
 from stella.infra.config import StellaConfig
 
 logger = logging.getLogger("stella.radar")
@@ -222,15 +229,26 @@ class ItemRadar:
     veiculo: str
     resumo: str
     gancho: str
+    apelido: str = ""
+
+
+def aplicar_apelidos(itens: list[ItemRadar], existentes: set[str]) -> None:
+    """Atribui apelidos kebab-case únicos aos itens (fallback no título)."""
+    brutos = [slug_apelido(it.apelido or it.titulo) for it in itens]
+    unicos = garantir_unicos(brutos, existentes)
+    for it, apelido in zip(itens, unicos, strict=False):
+        it.apelido = apelido
 
 
 _INSTRUCAO_CURADORIA = (
     "Você é a Stella, assistente de conteúdo do Bruno (consultor de marketing com IA, "
     "com toque lifestyle). Dos candidatos abaixo, escolha os {n} mais frescos e quentes "
     "para virar post hoje. Para cada um devolva: titulo, url e veiculo (copie exatamente "
-    "do candidato), resumo (1 a 2 linhas em português) e gancho (um ângulo de post curto "
-    "em português, na voz de estrategista). Não use travessão. Responda APENAS um array "
-    "JSON com objetos {{titulo, url, veiculo, resumo, gancho}}, sem texto fora do JSON.\n\n"
+    "do candidato), resumo (1 a 2 linhas em português), gancho (um ângulo de post curto "
+    "em português, na voz de estrategista) e apelido (um código curto kebab-case com 2 a 3 "
+    "palavras, temático e fácil de lembrar, ex: ia-google-agentes). Não use travessão. "
+    "Responda APENAS um array JSON com objetos "
+    "{{titulo, url, veiculo, resumo, gancho, apelido}}, sem texto fora do JSON.\n\n"
     "Candidatos:\n{lista}"
 )
 
@@ -270,6 +288,7 @@ def _curar_pool(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -
             veiculo=str(d.get("veiculo", "")),
             resumo=str(d.get("resumo", "")),
             gancho=str(d.get("gancho", "")),
+            apelido=str(d.get("apelido", "")),
         )
         for d in dados
     ]
@@ -319,8 +338,9 @@ def montar_card(itens: list[ItemRadar], horario_label: str, agora: datetime | No
         return f"{cabecalho}\n\nSem novidade quente neste drop, Senhor."
     blocos = [cabecalho, ""]
     for i, it in enumerate(itens, start=1):
+        ref = f"▸ <code>{_esc(it.apelido)}</code>\n" if it.apelido else ""
         blocos.append(
-            f"<b>{i}. {_esc(it.titulo)}</b>\n"
+            f"{ref}<b>{i}. {_esc(it.titulo)}</b>\n"
             f'🔗 <a href="{_esc(it.url, quote=True)}">{_esc(it.veiculo)}</a>\n'
             f"{_esc(it.resumo)}\n"
             f"💡 <i>{_esc(it.gancho)}</i>"
@@ -382,12 +402,27 @@ def salvar_no_vault(
     destino.parent.mkdir(parents=True, exist_ok=True)
     linhas = [f"\n## Drop {horario_label} ({quando:%H:%M})\n"]
     for it in itens:
-        linhas.append(f"- [{it.titulo}]({it.url}) | {it.veiculo}")
+        prefixo = f"`{it.apelido}` · " if it.apelido else ""
+        linhas.append(f"- {prefixo}[{it.titulo}]({it.url}) | {it.veiculo}")
         linhas.append(f"  - Resumo: {it.resumo}")
         linhas.append(f"  - Gancho: {it.gancho}")
     with destino.open("a", encoding="utf-8") as arq:
         arq.write("\n".join(linhas) + "\n")
     return destino
+
+
+def _item_para_dict(it: ItemRadar, drop: str, quando: datetime) -> dict[str, str]:
+    """Serializa um ItemRadar para o registro de drops (radar_drops.json)."""
+    return {
+        "apelido": it.apelido,
+        "titulo": it.titulo,
+        "url": it.url,
+        "veiculo": it.veiculo,
+        "resumo": it.resumo,
+        "gancho": it.gancho,
+        "drop": drop,
+        "data": quando.strftime("%Y-%m-%d"),
+    }
 
 
 _LABELS_HORA: dict[int, str] = {6: "06h", 14: "14h", 19: "19h"}
@@ -501,11 +536,18 @@ def rodar_radar(
             gravar_seen(seen, [c.url for c in novos[:n]], path=seen_path, agora=quando)
             return itens
 
+    # Apelidos únicos para referência (consulta/grava o registro só quando salvar).
+    registro = carregar_drops(DROPS_PATH) if salvar else []
+    existentes = {slug_apelido(e.get("apelido", "")) for e in registro}
+    aplicar_apelidos(itens, existentes)
+
     card = montar_card(itens, label, agora=quando)
     enviar(card)
     if itens:
         gravar_seen(seen, [it.url for it in itens], path=seen_path, agora=quando)
         if salvar:
+            entradas_drop = [_item_para_dict(it, label, quando) for it in itens]
+            salvar_drops(registro, entradas_drop, path=DROPS_PATH, agora=quando)
             try:
                 salvar_no_vault(itens, label, agora=quando)
             except Exception as exc:
