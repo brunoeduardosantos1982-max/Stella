@@ -13,6 +13,8 @@ from pathlib import Path
 
 import httpx
 
+from stella.corpo.persona_carrossel import GATILHO_CARROSSEL, PERSONA_CARROSSEL
+
 COFRE_TELEGRAM = Path("D:/VortexBrain00/.secrets/telegram.json")
 DAEMON_STATE = Path("D:/VortexBrain00/.secrets/daemon_state.json")
 DAEMON_LOG = Path("D:/VortexBrain00/.secrets/daemon.log")
@@ -264,14 +266,28 @@ def _conteudo_ativo() -> bool:
     return False
 
 
-def _ativar_conteudo() -> None:
+def _ativar_conteudo(modo: str = "reel") -> None:
     try:
         CONTEUDO_STATE.write_text(
-            json.dumps({"ativo": True, "desde": datetime.now().astimezone().isoformat()}),
+            json.dumps(
+                {"ativo": True, "desde": datetime.now().astimezone().isoformat(), "modo": modo}
+            ),
             encoding="utf-8",
         )
     except Exception:
         pass
+
+
+def _modo_sticky() -> str | None:
+    """Modo de conteúdo guardado no estado sticky ('carrossel'|'reel'), ou None."""
+    try:
+        if CONTEUDO_STATE.exists():
+            data = json.loads(CONTEUDO_STATE.read_text(encoding="utf-8"))
+            if data.get("ativo"):
+                return str(data.get("modo", "reel"))
+    except Exception:
+        return None
+    return None
 
 
 def _desativar_conteudo() -> None:
@@ -279,6 +295,19 @@ def _desativar_conteudo() -> None:
         CONTEUDO_STATE.unlink(missing_ok=True)
     except Exception:
         pass
+
+
+def _escolher_modo(texto: str, modo_sticky: str | None) -> str | None:
+    """Decide o modo de conteúdo: 'carrossel', 'reel' ou None (chat normal).
+
+    Carrossel tem prioridade sobre o gatilho genérico de conteúdo; um follow-up
+    sem gatilho herda o modo sticky.
+    """
+    if GATILHO_CARROSSEL.search(texto):
+        return "carrossel"
+    if GATILHO_CONTEUDO.search(texto):
+        return "reel"
+    return modo_sticky
 
 
 def _rodar_claude_json(args: list[str]) -> tuple[int, str, str]:
@@ -349,28 +378,28 @@ def executar_claude(texto: str) -> str:
     modelo_sel, texto = _selecionar_modelo(texto)
     claude_bin = shutil.which("claude") or "claude"
 
-    intent_conteudo = bool(GATILHO_CONTEUDO.search(texto))
-    nova_solicitacao = intent_conteudo and bool(_RE_ACAO_NOVA.search(texto))
     conteudo_ja_ativo = _conteudo_ativo()
-    modo_conteudo = intent_conteudo or conteudo_ja_ativo
+    modo = _escolher_modo(texto, _modo_sticky() if conteudo_ja_ativo else None)
+    intent_novo = bool(GATILHO_CARROSSEL.search(texto) or GATILHO_CONTEUDO.search(texto))
+    nova_solicitacao = intent_novo and bool(_RE_ACAO_NOVA.search(texto))
 
     # Opus avulso ("preciso do opus") fora do modo conteúdo: chamada única, sem sessão.
-    if modelo_sel == MODELO_OPUS and not modo_conteudo:
+    if modelo_sel == MODELO_OPUS and modo is None:
         code, out, err = _rodar_claude_json(
             _args_claude(claude_bin, texto, modelo=MODELO_OPUS, persona=PERSONA_STELLA)
         )
         return _resultado(code, out, err, salvar=False)
 
-    if modo_conteudo:
-        # Conteúdo: Opus + persona de conteúdo, MCP OFF (rápido). Usa skills
-        # (notebooklm, humanizer) e WebSearch, que não precisam de MCP. A imagem
-        # (Paper, etapa 3) fica deferida: salva design_spec, render é à parte.
+    if modo is not None:
+        # Conteúdo: Opus + persona do modo, MCP OFF (rápido). Usa skills
+        # (notebooklm, humanizer), WebSearch e os comandos `stella` da fábrica.
         modelo = MODELO_OPUS
         mcp_on = False
-        persona = PERSONA_STELLA + "\n\n" + PERSONA_CONTEUDO
+        extra = PERSONA_CARROSSEL if modo == "carrossel" else PERSONA_CONTEUDO
+        persona = PERSONA_STELLA + "\n\n" + extra
         if nova_solicitacao:
             resetar_sessao()  # pedido NOVO → sessão limpa (esquece o tema anterior)
-        _ativar_conteudo()  # renova o TTL sticky
+        _ativar_conteudo(modo)  # renova o TTL sticky e guarda o modo
     else:
         modelo = MODELO_PADRAO
         mcp_on = False
