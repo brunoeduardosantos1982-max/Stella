@@ -81,6 +81,18 @@ class RegistroKeywords:
             entrada.posts.append(post_id)
         return entrada
 
+    def definir_material(self, keyword: str, *, slug: str, material: str = "") -> EntradaKeyword:
+        """Define (sobrescreve) o material da keyword. Cria a entrada; não toca nos posts."""
+        norm = normalizar_keyword(keyword)
+        entrada = self._por_norm.get(norm)
+        if entrada is None:
+            entrada = EntradaKeyword(keyword=keyword.strip())
+            self._por_norm[norm] = entrada
+        entrada.slug = slug
+        if material:
+            entrada.material = material
+        return entrada
+
     def keywords(self) -> list[EntradaKeyword]:
         return list(self._por_norm.values())
 

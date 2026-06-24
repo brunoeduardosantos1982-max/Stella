@@ -76,3 +76,24 @@ def test_salvar_e_recarregar_roundtrip_atomico(tmp_path):
         material="diagrama",
         posts=["2026-06-05-02", "2026-06-17-02"],
     )
+
+
+def test_definir_material_cria_entrada_e_seta_slug():
+    reg = RegistroKeywords()
+    reg.definir_material("GOVERNANÇA", slug="governanca-agentes", material="checklist 4 camadas")
+    entrada = reg.buscar("governanca")
+    assert entrada is not None
+    assert entrada.slug == "governanca-agentes"
+    assert entrada.material == "checklist 4 camadas"
+    assert entrada.posts == []
+
+
+def test_definir_material_sobrescreve_sem_mexer_nos_posts():
+    reg = RegistroKeywords()
+    reg.registrar_post("MITO", "p1", slug="slug-antigo")
+    reg.definir_material("mito", slug="mapa-nivel-1", material="o mapa")
+    entrada = reg.buscar("MITO")
+    assert entrada is not None
+    assert entrada.slug == "mapa-nivel-1"
+    assert entrada.material == "o mapa"
+    assert entrada.posts == ["p1"]
