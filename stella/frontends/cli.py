@@ -555,6 +555,26 @@ def publicar_material_cmd(
     typer.echo(url)
 
 
+@app.command()
+def drop(
+    referencia: str = typer.Argument(..., help="Apelido do drop do Radar (ex.: ia-google-agentes)"),
+) -> None:
+    """Resolve um apelido do Radar e imprime a noticia-fonte (para o modo carrossel)."""
+    import json as _json
+
+    from stella.corpo.radar_drops import DROPS_PATH, carregar_drops, resolver_drop
+
+    achados = resolver_drop(referencia, carregar_drops(DROPS_PATH))
+    if not achados:
+        typer.echo(f"Senhor, nao achei nenhum drop para '{referencia}'.", err=True)
+        raise typer.Exit(code=1)
+    if len(achados) > 1:
+        apelidos = ", ".join(a.get("apelido", "?") for a in achados)
+        typer.echo(f"Ambiguo ({len(achados)} drops). Qual destes? {apelidos}")
+        raise typer.Exit(code=2)
+    typer.echo(_json.dumps(achados[0], ensure_ascii=False, indent=2))
+
+
 def main() -> None:
     """Entry point declarado em pyproject.toml."""
     app()
