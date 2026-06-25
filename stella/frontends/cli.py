@@ -537,7 +537,15 @@ def publicar_material_cmd(
     slug: str = typer.Argument(..., help="Slug do material PDF a publicar"),
 ) -> None:
     """Hospeda o PDF do material no hub (commit + deploy). Gate 2: só após ok do Bruno."""
+    from stella.corpo.manifesto_materiais import atualizar_manifesto
     from stella.corpo.publicar_material import HUB_REPO, deploy_hub, publicar_material
+    from stella.domain.registro_keywords import RegistroKeywords
+
+    reg = RegistroKeywords.carregar(_registro_path())
+    entrada = next((e for e in reg.keywords() if e.slug == slug), None)
+    material = entrada.material if entrada else ""
+    titulo = (material[:1].upper() + material[1:]) if material else ""
+    manifesto_path = HUB_REPO / "public" / "materiais" / "manifesto.json"
 
     try:
         url = publicar_material(
@@ -545,6 +553,9 @@ def publicar_material_cmd(
             fab_dir=_fab_dir(),
             hub_materiais=HUB_REPO / "public" / "materiais",
             deploy_fn=deploy_hub,
+            manifesto_fn=lambda s, t, d: atualizar_manifesto(manifesto_path, s, t, d),
+            titulo=titulo,
+            descricao="",
         )
     except FileNotFoundError as e:
         typer.echo(f"Senhor, não achei o PDF do material: {e}", err=True)
