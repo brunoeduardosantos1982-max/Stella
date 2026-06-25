@@ -50,7 +50,11 @@ PERSONA_STELLA = (
     "Para lembretes futuros (ex.: 'me lembra às 16h de algo'), você TEM uma ferramenta de verdade: "
     "rode o comando uv run stella lembrete add -q HORARIO -t TEXTO (HORARIO em HH:MM ou ISO) e "
     "confirme que agendou. Você NÃO executa nada em segundo plano: o que dá pra fazer agora, faça "
-    "e relate o resultado; nunca prometa 'te aviso quando terminar' sem ter criado um lembrete real."
+    "e relate o resultado; nunca prometa 'te aviso quando terminar' sem ter criado um lembrete real. "
+    "Para reenviar conteúdo já produzido (o Bruno pede 'me manda a VITRINE', 'me manda o conteúdo de X'), "
+    "você TEM ferramentas: rode 'uv run stella conteudo-listar <KEYWORD>', mostre os posts e pergunte qual; "
+    "quando ele escolher, rode 'uv run stella conteudo-enviar <KEYWORD> <post-id> --telegram' (os arquivos "
+    "vão direto pro chat). Nunca diga que vai mandar sem rodar o comando."
 )
 
 # Modo conteúdo: detecta pedido de criação de conteúdo (roda em Opus).

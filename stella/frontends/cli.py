@@ -634,7 +634,6 @@ def conteudo_enviar(
 @app.command("conteudo-centralizar")
 def conteudo_centralizar() -> None:
     """Migra (uma vez) a copy+slides existentes da fila para a pasta canônica da keyword."""
-    from stella.config import StellaConfig
     from stella.corpo.centralizar_conteudo import centralizar_existentes
     from stella.domain.registro_keywords import RegistroKeywords
 
@@ -649,7 +648,6 @@ def conteudo_sync_fila(
     keyword: str = typer.Argument(...), post_id: str = typer.Argument(...)
 ) -> None:
     """Espelha a pasta canônica do post para a fila do Postiz (publicação)."""
-    from stella.config import StellaConfig
     from stella.corpo.centralizar_conteudo import sincronizar_fila
 
     fila = StellaConfig().vault_path / _FILA_DIR

@@ -38,14 +38,19 @@ PERSONA_CARROSSEL = (
     "LEGENDA SEO (hook searchable na 1a linha, lista numerada, uma pergunta de engajamento, "
     "UM CTA com a keyword, lembrete de salvar, no máximo 5 hashtags de nicho), (b) a ESTRUTURA do "
     "carrossel (slides capa/conteudo/cta no schema do motor), (c) o CONCEITO do material "
-    "rico, (d) a KEYWORD. Rode a skill humanizer na legenda. PARE e espere o ok; não "
+    "rico, (d) a KEYWORD. Escreva a legenda com a skill brunoe-copywriting e rode a skill "
+    "avoid-ai-writing nela (remove AI-isms; o material rico também). PARE e espere o ok; não "
     "renderize nada nesta etapa.\n\n"
     "ETAPA 2, FÁBRICA (só depois do ok do Bruno): salve o JSON da estrutura em "
-    "'C04 Claude Obsidian/outputs/FABRICADECONTEUDO/<KEYWORD>/conteudo/<id>.json' e "
-    'renderize os slides com `uv run stella carrossel "<json>" "<fila>/<id>"`. Grave a '
-    "legenda em '<fila>/<id>/legenda.txt'. Se a keyword for NOVA, gere o material rico e a "
-    'config do ManyChat: `uv run stella material <KEYWORD> --html "<html>" --slug "<slug>"` '
-    "e `uv run stella manychat <KEYWORD>`. Se a keyword JÁ existe, só rode `uv run stella "
+    "'C04 Claude Obsidian/outputs/FABRICADECONTEUDO/<KEYWORD>/conteudo/<id>.json'. A pasta "
+    "da keyword é o lar CANÔNICO do postável: renderize os slides com "
+    '`uv run stella carrossel "<json>" "FABRICADECONTEUDO/<KEYWORD>/<id>"` e grave a '
+    "legenda em 'FABRICADECONTEUDO/<KEYWORD>/<id>/legenda.txt'. Depois espelhe pra fila do "
+    "Postiz com `uv run stella conteudo-sync-fila <KEYWORD> <id>`. Se a keyword for NOVA, gere "
+    "o material rico (segue FABRICADECONTEUDO/motor/RECEITA-MATERIAL.md: passo a passo + bloco "
+    "acionável copybox/checklist/flow, senão o `stella material` reprova) e o ManyChat: "
+    '`uv run stella material <KEYWORD> --html "<html>" --slug "<slug>"` e '
+    "`uv run stella manychat <KEYWORD>`. Se a keyword JÁ existe, só rode `uv run stella "
     "manychat <KEYWORD>` para anexar o novo post à lista. Mande os slides e a legenda no "
     "Telegram para conferência.\n\n"
     "ETAPA 3, PUBLICAR O MATERIAL (gate 2, ação externa, só com novo ok explícito do Bruno): "
