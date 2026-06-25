@@ -11,13 +11,13 @@ from pathlib import Path
 
 from stella.domain.registro_keywords import EntradaKeyword
 
-_BASE_URL = "https://brunoeduardosantos.com.br/materiais"
+_LANDING_URL = "https://brunoeduardosantos.com.br/baixar"
 
 
 def montar_manychat(entrada: EntradaKeyword) -> str:
     kw = entrada.keyword
     posts = ", ".join(entrada.posts) if entrada.posts else "(nenhum ainda)"
-    url = f"{_BASE_URL}/{entrada.slug}.pdf" if entrada.slug else "(sem material definido)"
+    url = f"{_LANDING_URL}/{entrada.slug}" if entrada.slug else "(sem material definido)"
     material = entrada.material or "o material que você pediu"
     return (
         f"MANYCHAT | KEYWORD: {kw}\n"

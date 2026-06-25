@@ -14,8 +14,15 @@ def test_monta_com_keyword_posts_e_url():
     txt = montar_manychat(entrada)
     assert "KEYWORD: MITO" in txt
     assert "2026-06-03-01, 2026-06-12-01" in txt
-    assert "https://brunoeduardosantos.com.br/materiais/mapa-nivel-1.pdf" in txt
+    assert "https://brunoeduardosantos.com.br/baixar/mapa-nivel-1" in txt
     assert "EU QUERO" in txt
+
+
+def test_dm2_aponta_pra_landing_nao_pro_pdf():
+    entrada = EntradaKeyword(keyword="VITRINE", slug="vitrine-busca-ia", posts=["p"])
+    txt = montar_manychat(entrada)
+    assert "brunoeduardosantos.com.br/baixar/vitrine-busca-ia" in txt
+    assert "/materiais/vitrine-busca-ia.pdf" not in txt
 
 
 def test_usa_o_material_no_dm():
