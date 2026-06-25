@@ -492,7 +492,7 @@ def material(
         contar_paginas_pdf,
         fontes_embutidas,
         renderizar_pdf,
-        validar_layout,
+        validar_material,
     )
     from stella.domain.registro_keywords import RegistroKeywords, normalizar_keyword
 
@@ -503,7 +503,7 @@ def material(
         if not fontes_embutidas(pdf_bytes):
             raise ValueError("fontes não embutidas (a CSS compartilhada não carregou?)")
         paginas = contar_paginas_pdf(pdf_bytes)
-        validar_layout(html_str, paginas)
+        validar_material(html_str, paginas)
     except (ValueError, RuntimeError) as e:
         typer.echo(f"Senhor, material reprovado: {e}", err=True)
         raise typer.Exit(code=2) from e
@@ -584,6 +584,75 @@ def drop(
         typer.echo(f"Ambiguo ({len(achados)} drops). Qual destes? {apelidos}")
         raise typer.Exit(code=2)
     typer.echo(_json.dumps(achados[0], ensure_ascii=False, indent=2))
+
+
+@app.command("conteudo-listar")
+def conteudo_listar(keyword: str = typer.Argument(..., help="Keyword (ex.: VITRINE)")) -> None:
+    """Lista os posts de uma keyword (para o Bruno escolher qual enviar)."""
+    from stella.domain.pacote_conteudo import listar_posts
+    from stella.domain.registro_keywords import RegistroKeywords
+
+    reg = RegistroKeywords.carregar(_registro_path())
+    posts = listar_posts(reg, keyword, _fab_dir())
+    if not posts:
+        typer.echo(f"Senhor, não há posts para '{keyword}'.")
+        raise typer.Exit(code=1)
+    for p in posts:
+        typer.echo(f"{p.post_id}\t{p.data}")
+
+
+@app.command("conteudo-enviar")
+def conteudo_enviar(
+    keyword: str = typer.Argument(...),
+    post_id: str = typer.Argument(...),
+    telegram: bool = typer.Option(False, "--telegram", help="Envia ao Telegram do Bruno"),
+) -> None:
+    """Monta o pacote do post (slides+legenda+PDF) e imprime os paths ou envia ao Telegram."""
+    from stella.domain.pacote_conteudo import resolver_pacote
+    from stella.domain.registro_keywords import RegistroKeywords
+
+    reg = RegistroKeywords.carregar(_registro_path())
+    pac = resolver_pacote(reg, keyword, post_id, _fab_dir())
+    if telegram:
+        from stella.adapters.telegram.arquivos import enviar_documento, enviar_foto
+        from stella.corpo.daemon_telegram import load_secrets
+
+        s = load_secrets()
+        for png in pac.slides:
+            enviar_foto(s.bot_token, s.chat_id, png)
+        if pac.legenda:
+            enviar_documento(s.bot_token, s.chat_id, pac.legenda, legenda="Legenda do post")
+        if pac.material_pdf:
+            enviar_documento(s.bot_token, s.chat_id, pac.material_pdf, legenda="Material rico")
+        typer.echo("Senhor, pacote enviado ao Telegram.")
+        return
+    for caminho in [*pac.slides, pac.legenda, pac.material_pdf]:
+        if caminho:
+            typer.echo(str(caminho))
+
+
+@app.command("conteudo-centralizar")
+def conteudo_centralizar() -> None:
+    """Migra (uma vez) a copy+slides existentes da fila para a pasta canônica da keyword."""
+    from stella.corpo.centralizar_conteudo import centralizar_existentes
+    from stella.domain.registro_keywords import RegistroKeywords
+
+    reg = RegistroKeywords.carregar(_registro_path())
+    fila = StellaConfig().vault_path / _FILA_DIR
+    migrados = centralizar_existentes(reg, _fab_dir(), fila)
+    typer.echo(f"OK: {len(migrados)} post(s) centralizado(s).")
+
+
+@app.command("conteudo-sync-fila")
+def conteudo_sync_fila(
+    keyword: str = typer.Argument(...), post_id: str = typer.Argument(...)
+) -> None:
+    """Espelha a pasta canônica do post para a fila do Postiz (publicação)."""
+    from stella.corpo.centralizar_conteudo import sincronizar_fila
+
+    fila = StellaConfig().vault_path / _FILA_DIR
+    destino = sincronizar_fila(_fab_dir(), fila, keyword, post_id)
+    typer.echo(f"OK: espelhado em {destino}")
 
 
 def main() -> None:

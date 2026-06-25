@@ -50,7 +50,7 @@ body{background:radial-gradient(circle at 88% -6%,rgba(34,211,238,.13),transpare
 .ct-title .serif{font-size:1em}
 .steps{margin-top:50px;display:flex;flex-direction:column;gap:34px}
 .step{display:flex;gap:30px;align-items:flex-start}
-.num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:58px;line-height:1;color:var(--cyan);min-width:96px}
+.num{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:42px;line-height:1;color:var(--cyan);flex:none;width:88px;height:88px;border-radius:999px;background:rgba(34,211,238,.12);border:1px solid rgba(34,211,238,.5);display:flex;align-items:center;justify-content:center}
 .st-h{font-weight:700;font-size:38px;line-height:1.1}
 .st-b{margin-top:8px;font-size:27px;line-height:1.4;color:var(--muted)}
 .mid{flex:1;display:flex;flex-direction:column;justify-content:center}

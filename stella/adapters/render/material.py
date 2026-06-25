@@ -46,6 +46,26 @@ def validar_layout(html: str, n_paginas: int) -> None:
         )
 
 
+# Bloco acionável = o que faz o lead-magnet valer a ação de baixar (não só prosa):
+# copybox (prompt/template pra copiar), checklist (caixas) ou flow (diagrama).
+_ACIONAVEL_RE = re.compile(r'class="[^"]*\b(?:copybox|checklist|flow)\b[^"]*"')
+
+
+def validar_riqueza(html: str) -> None:
+    """Levanta ValueError se o material não tem ao menos um bloco acionável."""
+    if not _ACIONAVEL_RE.search(html):
+        raise ValueError(
+            "material raso: faltou bloco acionável (copybox/checklist/flow). "
+            "Um lead-magnet precisa de algo que a pessoa faça/copie, não só prosa."
+        )
+
+
+def validar_material(html: str, n_paginas: int) -> None:
+    """QA completo do material: layout (seções==páginas) + riqueza (bloco acionável)."""
+    validar_layout(html, n_paginas)
+    validar_riqueza(html)
+
+
 def renderizar_pdf(
     html_file: str | Path, pdf_out: str | Path, *, chrome: str | None = None
 ) -> bytes:
