@@ -36,7 +36,7 @@ PERSONA_CARROSSEL = (
     "Consulte o registro de keywords: se a keyword já tem material, REUSE o mesmo PDF "
     "(não gere outro). Entregue ao Bruno no Telegram, para ele aprovar ou editar: (a) a "
     "LEGENDA SEO (hook searchable na 1a linha, lista numerada, uma pergunta de engajamento, "
-    "UM CTA com a keyword, lembrete de salvar, 12 a 15 hashtags), (b) a ESTRUTURA do "
+    "UM CTA com a keyword, lembrete de salvar, no máximo 5 hashtags de nicho), (b) a ESTRUTURA do "
     "carrossel (slides capa/conteudo/cta no schema do motor), (c) o CONCEITO do material "
     "rico, (d) a KEYWORD. Rode a skill humanizer na legenda. PARE e espere o ok; não "
     "renderize nada nesta etapa.\n\n"
