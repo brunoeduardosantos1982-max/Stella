@@ -30,13 +30,22 @@ def publicar_material(
     fab_dir: str | Path,
     hub_materiais: str | Path,
     deploy_fn: Callable[[str, Path], str],
+    manifesto_fn: Callable[[str, str, str], None] = lambda s, t, d: None,
+    titulo: str = "",
+    descricao: str = "",
 ) -> str:
-    """Resolve o PDF (guard antes de qualquer efeito), copia pro hub e deploya."""
+    """Resolve o PDF (guard antes de qualquer efeito), copia pro hub e deploya.
+
+    Se `titulo` for dado, chama `manifesto_fn(slug, titulo, descricao)` para a
+    landing genérica saber o que exibir.
+    """
     pdf = encontrar_pdf(fab_dir, slug)
     hub_materiais = Path(hub_materiais)
     hub_materiais.mkdir(parents=True, exist_ok=True)
     destino = hub_materiais / f"{slug}.pdf"
     shutil.copy2(pdf, destino)
+    if titulo:
+        manifesto_fn(slug, titulo, descricao)
     return deploy_fn(slug, destino)
 
 

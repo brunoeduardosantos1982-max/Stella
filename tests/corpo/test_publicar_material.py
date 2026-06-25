@@ -50,3 +50,39 @@ def test_publicar_sem_pdf_nao_deploya(tmp_path):
     with pytest.raises(FileNotFoundError):
         publicar_material("xpto", fab_dir=fab, hub_materiais=tmp_path / "h", deploy_fn=fake_deploy)
     assert contador["n"] == 0
+
+
+def test_publicar_chama_manifesto_com_titulo(tmp_path):
+    fab = tmp_path / "fab"
+    (fab / "VITRINE").mkdir(parents=True)
+    (fab / "VITRINE" / "v.pdf").write_bytes(b"%PDF")
+    chamado: dict[str, str] = {}
+
+    def fake_manifesto(slug: str, titulo: str, descricao: str) -> None:
+        chamado.update(slug=slug, titulo=titulo, descricao=descricao)
+
+    publicar_material(
+        "v",
+        fab_dir=fab,
+        hub_materiais=tmp_path / "h",
+        deploy_fn=lambda s, d: "url",
+        manifesto_fn=fake_manifesto,
+        titulo="Vitrine da IA",
+        descricao="Guia",
+    )
+    assert chamado == {"slug": "v", "titulo": "Vitrine da IA", "descricao": "Guia"}
+
+
+def test_publicar_sem_titulo_nao_chama_manifesto(tmp_path):
+    fab = tmp_path / "fab"
+    (fab / "X").mkdir(parents=True)
+    (fab / "X" / "v.pdf").write_bytes(b"%PDF")
+    n = {"c": 0}
+    publicar_material(
+        "v",
+        fab_dir=fab,
+        hub_materiais=tmp_path / "h",
+        deploy_fn=lambda s, d: "url",
+        manifesto_fn=lambda s, t, d: n.update(c=n["c"] + 1),
+    )
+    assert n["c"] == 0
