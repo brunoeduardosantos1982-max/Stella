@@ -492,7 +492,7 @@ def material(
         contar_paginas_pdf,
         fontes_embutidas,
         renderizar_pdf,
-        validar_layout,
+        validar_material,
     )
     from stella.domain.registro_keywords import RegistroKeywords, normalizar_keyword
 
@@ -503,7 +503,7 @@ def material(
         if not fontes_embutidas(pdf_bytes):
             raise ValueError("fontes não embutidas (a CSS compartilhada não carregou?)")
         paginas = contar_paginas_pdf(pdf_bytes)
-        validar_layout(html_str, paginas)
+        validar_material(html_str, paginas)
     except (ValueError, RuntimeError) as e:
         typer.echo(f"Senhor, material reprovado: {e}", err=True)
         raise typer.Exit(code=2) from e
