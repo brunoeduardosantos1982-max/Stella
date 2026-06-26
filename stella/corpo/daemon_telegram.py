@@ -23,6 +23,9 @@ CONTEUDO_STATE = Path("D:/VortexBrain00/.secrets/stella_conteudo.json")
 CONTEUDO_TTL_MIN = 30
 CLAUDE_CWD = Path("D:/VortexBrain00")
 TELEGRAM_CHUNK_MAX = 4000
+# Persona vai por arquivo: inline, o persona grande mangla o arg no claude.CMD
+# (wrapper batch do Windows) e o output vira texto em vez de JSON (session_id some).
+_PERSONA_FILE = Path(tempfile.gettempdir()) / "stella_persona_prompt.txt"
 
 # Modelo da Stella no Telegram: Sonnet por padrão (econômico p/ assistente).
 # A frase-gatilho "Stella eu preciso do Opus" (em qualquer lugar da mensagem;
@@ -364,7 +367,10 @@ def _args_claude(
     if not mcp_on:
         args.append("--strict-mcp-config")  # chat rápido: sem carregar MCP
     if persona:
-        args += ["--append-system-prompt", persona]
+        # Por arquivo (não inline): o persona grande mangla no claude.CMD e quebra
+        # o --output-format json, fazendo o session_id sumir (ver test_daemon_telegram).
+        _PERSONA_FILE.write_text(persona, encoding="utf-8")
+        args += ["--append-system-prompt-file", str(_PERSONA_FILE)]
     args += ["--output-format", "json"]
     return args
 

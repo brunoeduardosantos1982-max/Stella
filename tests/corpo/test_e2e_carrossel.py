@@ -5,6 +5,8 @@ PERSONA_CARROSSEL e o Opus, sem gastar uma sessão real nem tocar no estado stic
 A E2E viva (Telegram -> cérebro -> comandos stella) é confirmada manualmente.
 """
 
+from pathlib import Path
+
 from stella.corpo import daemon_telegram as daemon
 
 
@@ -23,10 +25,13 @@ def test_mensagem_carrossel_invoca_cerebro_com_persona_carrossel(monkeypatch, tm
 
     resposta = daemon.executar_claude("Stella, faz um carrossel sobre agentes de IA")
 
-    blob = "\n".join(capturado["args"])
-    assert daemon.PERSONA_CARROSSEL in blob
-    assert daemon.PERSONA_CONTEUDO not in blob  # é carrossel, não reel
-    assert daemon.MODELO_OPUS in capturado["args"]
+    args = capturado["args"]
+    # persona vai por arquivo (--append-system-prompt-file), não inline, senão mangla no claude.CMD
+    assert "--append-system-prompt-file" in args
+    persona = Path(args[args.index("--append-system-prompt-file") + 1]).read_text(encoding="utf-8")
+    assert daemon.PERSONA_CARROSSEL in persona
+    assert daemon.PERSONA_CONTEUDO not in persona  # é carrossel, não reel
+    assert daemon.MODELO_OPUS in args
     assert resposta == "feito"
     # o modo carrossel ficou registrado no sticky
     assert daemon._modo_sticky() == "carrossel"
