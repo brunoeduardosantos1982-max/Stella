@@ -8,7 +8,11 @@ follow-up perde o contexto. Fix: passar o persona por --append-system-prompt-fil
 
 from pathlib import Path
 
-from stella.corpo.daemon_telegram import _args_claude, _eh_nova_solicitacao
+from stella.corpo.daemon_telegram import (
+    PERSONA_CONTEUDO,
+    _args_claude,
+    _eh_nova_solicitacao,
+)
 
 
 def test_args_claude_persona_vai_por_arquivo_nao_inline():
@@ -53,3 +57,16 @@ def test_pedido_novo_em_chat_frio_reseta():
 
 def test_conversa_normal_nao_e_solicitacao_de_conteudo():
     assert _eh_nova_solicitacao("bom dia, tudo certo?", conteudo_ja_ativo=False) is False
+
+
+# --- Ear-prompter aposentado: ETAPA 2 entrega bullets de gravação (2026-06-29) ---
+# Decisão do Bruno: falar a partir de bullets sai mais natural que recitar o áudio
+# palavra por palavra. O módulo ear_prompter fica dormente; a persona muda.
+
+
+def test_persona_conteudo_etapa2_entrega_bullets_sem_ear_prompter():
+    persona = PERSONA_CONTEUDO.lower()
+    assert "bullets" in persona  # ETAPA 2 monta bullets de gravação
+    assert "bullets-gravacao.md" in PERSONA_CONTEUDO  # artefato salvo na pasta
+    assert "ear-prompter" not in persona  # áudio aposentado
+    assert "enviar-audio" not in persona
