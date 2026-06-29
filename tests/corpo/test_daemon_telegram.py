@@ -8,7 +8,7 @@ follow-up perde o contexto. Fix: passar o persona por --append-system-prompt-fil
 
 from pathlib import Path
 
-from stella.corpo.daemon_telegram import _args_claude
+from stella.corpo.daemon_telegram import _args_claude, _eh_nova_solicitacao
 
 
 def test_args_claude_persona_vai_por_arquivo_nao_inline():
@@ -27,3 +27,29 @@ def test_args_claude_resume_sem_persona_nao_referencia_arquivo():
     assert "--append-system-prompt-file" not in args
     assert "--append-system-prompt" not in args
     assert args[args.index("--resume") + 1] == "abc-123"
+
+
+# --- Buraco residual da continuidade (2026-06-28) ------------------------------
+# Um follow-up que RESPONDE ao menu de opções ('faz a opção 2 do roteiro') contém
+# verbo de criação + palavra de conteúdo, então o detector antigo o tratava como
+# pedido NOVO e ZERAVA a sessão -> a Stella perdia o contexto no meio do fluxo.
+
+
+def test_resposta_de_selecao_no_meio_do_fluxo_nao_e_nova_solicitacao():
+    # exatamente o caso relatado pelo Bruno
+    assert _eh_nova_solicitacao("faz a opção 2 do roteiro", conteudo_ja_ativo=True) is False
+    assert _eh_nova_solicitacao("manda a opção 1", conteudo_ja_ativo=True) is False
+    assert _eh_nova_solicitacao("a segunda", conteudo_ja_ativo=True) is False
+
+
+def test_pedido_de_tema_novo_no_meio_do_fluxo_ainda_reseta():
+    # mudar de assunto dentro do TTL continua zerando a sessão (comportamento intencional)
+    assert _eh_nova_solicitacao("cria um script sobre vendas", conteudo_ja_ativo=True) is True
+
+
+def test_pedido_novo_em_chat_frio_reseta():
+    assert _eh_nova_solicitacao("cria um roteiro sobre IA", conteudo_ja_ativo=False) is True
+
+
+def test_conversa_normal_nao_e_solicitacao_de_conteudo():
+    assert _eh_nova_solicitacao("bom dia, tudo certo?", conteudo_ja_ativo=False) is False

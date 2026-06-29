@@ -68,6 +68,30 @@ _RE_ACAO_NOVA = re.compile(
     r"\b(cri[ae]r?|crie|fa[çz]\w*|quero|ger[ae]r?|gere|mont[ae]r?|monte|novo|nova)\b",
     re.IGNORECASE,
 )
+# Resposta de ESCOLHA ao menu de opções (não é pedido novo): 'a opção 2', 'a segunda',
+# 'a 2', 'número 1', 'essa', 'aprovo'. Veta o reset quando já estamos no fluxo de conteúdo.
+_RE_SELECAO = re.compile(
+    r"\b(op[çc][aã]o|(primeir|segund|terceir)[ao]|n[uú]mero\s*[123]\b|"
+    r"a\s*[123]\b|ess[ae]\b|est[ae]\b|aprov\w*)\b",
+    re.IGNORECASE,
+)
+
+
+def _eh_nova_solicitacao(texto: str, *, conteudo_ja_ativo: bool) -> bool:
+    """Pedido NOVO de conteúdo (deve zerar a sessão), distinto de um follow-up.
+
+    Um follow-up que responde ao menu ('faz a opção 2 do roteiro') tem verbo de
+    criação + palavra de conteúdo, mas NÃO é pedido novo: se já estamos num fluxo
+    de conteúdo (sticky ativo) e a mensagem parece uma escolha, não reseta a sessão
+    (senão o contexto morre no meio e a Stella vira amnésica no follow-up).
+    """
+    intent_novo = bool(GATILHO_CARROSSEL.search(texto) or GATILHO_CONTEUDO.search(texto))
+    if not (intent_novo and _RE_ACAO_NOVA.search(texto)):
+        return False
+    if conteudo_ja_ativo and _RE_SELECAO.search(texto):
+        return False  # é resposta ao menu, não pedido novo
+    return True
+
 
 PERSONA_CONTEUDO = (
     "MODO CONTEÚDO ATIVO — conteúdo para @brunoe.santos. Fluxo em 3 ETAPAS; uma etapa por vez, "
@@ -390,8 +414,7 @@ def executar_claude(texto: str) -> str:
 
     conteudo_ja_ativo = _conteudo_ativo()
     modo = _escolher_modo(texto, _modo_sticky() if conteudo_ja_ativo else None)
-    intent_novo = bool(GATILHO_CARROSSEL.search(texto) or GATILHO_CONTEUDO.search(texto))
-    nova_solicitacao = intent_novo and bool(_RE_ACAO_NOVA.search(texto))
+    nova_solicitacao = _eh_nova_solicitacao(texto, conteudo_ja_ativo=conteudo_ja_ativo)
 
     # Opus avulso ("preciso do opus") fora do modo conteúdo: chamada única, sem sessão.
     if modelo_sel == MODELO_OPUS and modo is None:
