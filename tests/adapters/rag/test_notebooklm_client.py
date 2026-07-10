@@ -98,3 +98,58 @@ def test_search_vazio_quando_sem_resposta(monkeypatch):
         lambda *a, **k: _Proc(returncode=0, stdout=json.dumps({})),
     )
     assert NotebookLMRAGClient(notebook_id="nb_1").search("x") == []
+
+
+def _fake_run_multi(respostas: dict[str, _Proc]):
+    """Roteia subprocess.run: `list` devolve os notebooks, `ask` responde por id."""
+    notebooks = {"notebooks": [{"id": nb} for nb in respostas]}
+
+    def _run(cmd, **k):
+        if "list" in cmd:
+            return _Proc(returncode=0, stdout=json.dumps(notebooks))
+        nb = cmd[cmd.index("--notebook") + 1]
+        return respostas[nb]
+
+    return _run
+
+
+def test_search_sem_notebook_id_consulta_todos(monkeypatch):
+    respostas = {
+        "nb_a": _Proc(returncode=0, stdout=json.dumps({"answer": "resposta A"})),
+        "nb_b": _Proc(returncode=0, stdout=json.dumps({"answer": "resposta B"})),
+    }
+    monkeypatch.setattr(subprocess, "run", _fake_run_multi(respostas))
+
+    docs = NotebookLMRAGClient().search("pergunta")
+
+    assert {d["notebook"] for d in docs} == {"nb_a", "nb_b"}
+    assert {d["texto"] for d in docs} == {"resposta A", "resposta B"}
+
+
+def test_search_todos_tolera_falha_parcial(monkeypatch):
+    respostas = {
+        "nb_a": _Proc(returncode=1, stderr="boom"),
+        "nb_b": _Proc(returncode=0, stdout=json.dumps({"answer": "sobreviveu"})),
+    }
+    monkeypatch.setattr(subprocess, "run", _fake_run_multi(respostas))
+
+    docs = NotebookLMRAGClient().search("pergunta")
+
+    assert len(docs) == 1
+    assert docs[0]["texto"] == "sobreviveu"
+
+
+def test_search_todos_levanta_quando_todos_falham(monkeypatch):
+    respostas = {
+        "nb_a": _Proc(returncode=1, stderr="boom a"),
+        "nb_b": _Proc(returncode=1, stderr="boom b"),
+    }
+    monkeypatch.setattr(subprocess, "run", _fake_run_multi(respostas))
+
+    with pytest.raises(NotebookLMError):
+        NotebookLMRAGClient().search("pergunta")
+
+
+def test_search_todos_vazio_quando_conta_sem_notebooks(monkeypatch):
+    monkeypatch.setattr(subprocess, "run", _fake_run_multi({}))
+    assert NotebookLMRAGClient().search("pergunta") == []

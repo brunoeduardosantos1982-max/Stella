@@ -153,9 +153,9 @@ def build_stella(config: StellaConfig) -> Stella:
         ),
     )
     if not config.notebooklm_notebook_id:
-        _logger.warning(
-            "NotebookLM: STELLA_NOTEBOOKLM_NOTEBOOK_ID vazio - o agente de marca "
-            "vai falhar no gate de auth/consulta ate configurar o notebook."
+        _logger.info(
+            "NotebookLM: STELLA_NOTEBOOKLM_NOTEBOOK_ID vazio - o RAG vai "
+            "consultar TODOS os notebooks da conta."
         )
     registry = AgentRegistry(config.agents_dir)
 

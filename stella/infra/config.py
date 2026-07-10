@@ -56,6 +56,7 @@ class StellaConfig(BaseSettings):
     render_browser_path: str = Field(default="")
 
     # NotebookLM: referencia RAG via CLI local (sem API key, usa storage_state.json)
+    # notebook_id vazio = consulta todos os notebooks da conta
     notebooklm_notebook_id: str = Field(default="")
     notebooklm_bin: str = Field(default="notebooklm")
     notebooklm_timeout_s: int = Field(default=60, gt=0)
