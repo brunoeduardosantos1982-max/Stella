@@ -515,11 +515,20 @@ def _receber_midia(
     destino, pasta = resultado
     tamanho_mb = destino.stat().st_size / (1024 * 1024)
     _append_log(log_path, f"midia guardada em {destino}")
+
+    if pasta == "ofertas":
+        proximo = (
+            "Vai para a curadoria: confiro preço e roteiro na lâmina antes de "
+            "qualquer coisa ir ao ar. Me diga se é para *campanha comercial* ou "
+            "*post institucional*, se já souber."
+        )
+    else:
+        proximo = "Me diz o que ele deve virar, ou manda o resto que eu junto tudo."
+
     send_message(
         secrets.bot_token,
         secrets.chat_id,
-        f"📥 Guardado em *{pasta}*\n`{destino.name}`\n{tamanho_mb:.1f} MB\n\n"
-        "Me diz o que ele deve virar, ou manda o resto que eu junto tudo.",
+        f"📥 Guardado em *{pasta}*\n`{destino.name}`\n{tamanho_mb:.1f} MB\n\n{proximo}",
     )
     return True
 

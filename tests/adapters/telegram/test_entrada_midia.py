@@ -126,3 +126,36 @@ def test_outro_erro_do_getfile_nao_vira_arquivo_grande(tmp_path: Path):
             raiz=tmp_path,
             http_get=get_erro,
         )
+
+
+def test_lamina_de_fornecedor_vai_para_ofertas():
+    for legenda in [
+        "oferta nova da Incomum",
+        "lâmina Maceió dezembro",
+        "pacote Bariloche",
+        "CATIVA bloqueio aéreo",
+    ]:
+        assert escolher_pasta(legenda) == "ofertas", legenda
+
+
+def test_oferta_ganha_de_story_na_mesma_legenda():
+    # "oferta para story" é oferta: o que vira Story se decide DEPOIS de
+    # conferir preço e roteiro, não na chegada do arquivo.
+    assert escolher_pasta("oferta para story") == "ofertas"
+
+
+def test_legenda_inteira_fica_guardada_ao_lado(tmp_path: Path):
+    mensagem = {
+        "document": {"file_id": "abc", "file_name": "lamina.pdf", "file_size": 100},
+        "caption": "oferta comercial, embarque Navegantes, usar em anúncio",
+    }
+    destino, pasta = guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(), agora=AGORA)
+    assert pasta == "ofertas"
+    ao_lado = destino.with_suffix(destino.suffix + ".txt")
+    assert "embarque Navegantes" in ao_lado.read_text(encoding="utf-8")
+
+
+def test_sem_legenda_nao_cria_arquivo_de_texto(tmp_path: Path):
+    mensagem = {"video": {"file_id": "abc", "file_name": "clipe.mp4", "file_size": 10}}
+    destino, _ = guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(), agora=AGORA)
+    assert not destino.with_suffix(destino.suffix + ".txt").exists()

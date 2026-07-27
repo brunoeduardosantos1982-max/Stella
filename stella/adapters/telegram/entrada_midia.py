@@ -41,9 +41,32 @@ def apelidar(texto: str) -> str:
     return limpo[:60]
 
 
+# Pistas de que o arquivo é uma OFERTA de fornecedor, não peça de post.
+# Inclui os nomes dos fornecedores porque é comum a legenda ser só isso.
+PISTAS_DE_OFERTA = (
+    "oferta",
+    "lamina",
+    "pacote",
+    "tarifario",
+    "bloqueio",
+    "incomum",
+    "brt",
+    "tt operadora",
+    "cativa",
+    "ehtl",
+)
+
+
 def escolher_pasta(legenda: str) -> str:
-    """A legenda roteia. Sem pista, cai em reels, que é o volume."""
+    """A legenda roteia. Sem pista, cai em reels, que é o volume.
+
+    Oferta vem antes de story: uma lâmina legendada "oferta para story" é uma
+    oferta, e o destino dela é a curadoria, não a pasta de peças prontas. O que
+    vira Story é decidido DEPOIS de o preço e o roteiro serem conferidos.
+    """
     alvo = _sem_acento(legenda).lower()
+    if any(pista in alvo for pista in PISTAS_DE_OFERTA):
+        return "ofertas"
     if "story" in alvo or "stories" in alvo:
         return "stories"
     return "reels"
@@ -160,4 +183,20 @@ def guardar(
     nome = montar_nome(legenda, midia["nome"], agora)
     destino = raiz / pasta / nome
     baixar(token, midia["file_id"], destino, http_get=http_get)
+    _guardar_legenda(destino, legenda, agora)
     return destino, pasta
+
+
+def _guardar_legenda(destino: Path, legenda: str, agora: datetime | None) -> None:
+    """Grava a legenda inteira ao lado do arquivo.
+
+    O nome do arquivo só carrega um apelido encurtado. Numa oferta, a legenda
+    costuma trazer o que decide o uso ("comercial, embarque Navegantes, para
+    anúncio") e perder isso obriga a perguntar de novo.
+    """
+    if not legenda.strip():
+        return
+    quando = (agora or datetime.now(BRASILIA)).strftime("%Y-%m-%d %H:%M")
+    destino.with_suffix(destino.suffix + ".txt").write_text(
+        f"{quando}\n\n{legenda.strip()}\n", encoding="utf-8"
+    )
