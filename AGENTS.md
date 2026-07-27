@@ -29,6 +29,9 @@ Python ≥3.11, `pyproject.toml` (hatchling), venv em `.venv/`. Branch base: **m
 ## Pegadinhas
 
 - **O daemon Telegram carrega o código só no start.** Editar/commitar não muda o bot em execução: reiniciar a tarefa do Windows "Stella Daemon Telegram" (os `.ps1` do daemon/watchdog moram na RAIZ do workspace, não neste repo).
+- **`Stop-ScheduledTask` NÃO derruba o daemon:** o lançador solta o processo, a tarefa volta a `Ready` e o python continua vivo com o código velho. Para reiniciar de verdade, matar o processo (`Stop-Process`) e depois `Start-ScheduledTask`.
+- **O daemon aparece como DOIS processos python, e isso é normal:** o segundo é filho do primeiro (par do atalho de console `stella.exe`). Confirmar com `ParentProcessId` antes de achar que há daemon duplicado brigando pelo mesmo bot.
+- **Mídia recebida pelo Telegram** (vídeo/foto/documento) cai em `D:\VortexBrain00\_entrada-midia\`, roteada pela legenda: contém "story" vai para `stories/`, o resto para `reels/`. Áudio e voz continuam indo para a transcrição, de propósito.
 - Voz oficial do TTS = **Francisca**. A voz Thalita multilingual desvia para espanhol/inglês — não usar.
 - Em código Windows, preferir `timezone(timedelta(hours=-3))` a `ZoneInfo("America/Sao_Paulo")` (evita dependência `tzdata`).
 - O corpo das skills `.md` NÃO entra no prompt dos agentes (só o nome); a regra efetiva mora no prompt do agente/QA — editar a skill é cosmético.
