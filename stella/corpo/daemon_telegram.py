@@ -467,6 +467,63 @@ def _status_text(runtime: DaemonRuntime) -> str:
     )
 
 
+def _receber_midia(
+    message: dict[str, object],
+    secrets: TelegramSecrets,
+    *,
+    log_path: Path,
+) -> bool:
+    """Guarda video/foto/documento em `_entrada-midia/`. True se tratou a mensagem.
+
+    Roda ANTES do tratamento de texto: mensagem com midia nao tem `text`, so
+    `caption`, e a legenda e o que decide se vai para reels ou stories.
+    """
+    from stella.adapters.telegram.entrada_midia import (
+        ArquivoGrandeDemais,
+        extrair_midia,
+        guardar,
+    )
+
+    if extrair_midia(message) is None:
+        return False
+
+    try:
+        resultado = guardar(message, secrets.bot_token)
+    except ArquivoGrandeDemais:
+        send_message(
+            secrets.bot_token,
+            secrets.chat_id,
+            "Senhor, esse arquivo passou do teto que o Telegram deixa um bot baixar, "
+            "que é de 20 MB.\n\n"
+            "Reenvie como *vídeo* em vez de *arquivo*: o Telegram comprime e quase "
+            "sempre cabe. Se for um vídeo longo ou pesado, me avise que eu pego por "
+            "outro caminho.",
+        )
+        return True
+    except Exception as exc:  # rede, disco, formato inesperado
+        _append_log(log_path, f"falha ao guardar midia: {type(exc).__name__}: {exc}")
+        send_message(
+            secrets.bot_token,
+            secrets.chat_id,
+            "Senhor, não consegui guardar esse arquivo. Pode tentar de novo?",
+        )
+        return True
+
+    if resultado is None:
+        return False
+
+    destino, pasta = resultado
+    tamanho_mb = destino.stat().st_size / (1024 * 1024)
+    _append_log(log_path, f"midia guardada em {destino}")
+    send_message(
+        secrets.bot_token,
+        secrets.chat_id,
+        f"📥 Guardado em *{pasta}*\n`{destino.name}`\n{tamanho_mb:.1f} MB\n\n"
+        "Me diz o que ele deve virar, ou manda o resto que eu junto tudo.",
+    )
+    return True
+
+
 def _texto_de_voz(
     message: dict[str, object],
     secrets: TelegramSecrets,
@@ -534,6 +591,11 @@ def process_update(
     if chat_id != secrets.chat_id:
         if chat_id:
             _append_log(log_path, f"chat nao autorizado ignorado chat_id={chat_id}")
+        return
+
+    # Mídia primeiro: mensagem com vídeo não tem `text`, e sem isto ela seria
+    # ignorada em silêncio, que era o comportamento até 2026-07-27.
+    if _receber_midia(message, secrets, log_path=log_path):
         return
 
     veio_de_voz = False
