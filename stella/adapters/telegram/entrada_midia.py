@@ -127,6 +127,24 @@ def montar_nome(legenda: str, nome_original: str, agora: datetime | None = None)
     return f"{quando}__{apelido}{sufixo}"
 
 
+def caminho_livre(destino: Path) -> Path:
+    """Devolve um caminho que ainda não existe, somando -2, -3... se preciso.
+
+    O nome tem precisão de MINUTO. Quando o Bruno manda vários vídeos seguidos
+    sem legenda, todos viram `...__sem-legenda.mp4` no mesmo minuto e o
+    download seguinte sobrescreve o anterior em silêncio. Aconteceu de verdade
+    em 2026-07-27: 9 arquivos chegaram, 7 sobraram. Daí esta guarda existir, e
+    daí ela ter teste próprio.
+    """
+    if not destino.exists():
+        return destino
+    for n in range(2, 1000):
+        candidato = destino.with_name(f"{destino.stem}-{n}{destino.suffix}")
+        if not candidato.exists():
+            return candidato
+    raise ValueError(f"não achei nome livre para {destino}")
+
+
 class ArquivoGrandeDemais(Exception):
     """O Telegram recusou o download por tamanho."""
 
@@ -181,7 +199,7 @@ def guardar(
     legenda = str(message.get("caption") or "")
     pasta = escolher_pasta(legenda)
     nome = montar_nome(legenda, midia["nome"], agora)
-    destino = raiz / pasta / nome
+    destino = caminho_livre(raiz / pasta / nome)
     baixar(token, midia["file_id"], destino, http_get=http_get)
     _guardar_legenda(destino, legenda, agora)
     return destino, pasta

@@ -10,6 +10,7 @@ import pytest
 from stella.adapters.telegram.entrada_midia import (
     ArquivoGrandeDemais,
     apelidar,
+    caminho_livre,
     escolher_pasta,
     extrair_midia,
     guardar,
@@ -159,3 +160,31 @@ def test_sem_legenda_nao_cria_arquivo_de_texto(tmp_path: Path):
     mensagem = {"video": {"file_id": "abc", "file_name": "clipe.mp4", "file_size": 10}}
     destino, _ = guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(), agora=AGORA)
     assert not destino.with_suffix(destino.suffix + ".txt").exists()
+
+
+# Regressao de 2026-07-27: 9 arquivos chegaram, 7 sobraram. Videos sem legenda
+# no mesmo minuto viravam o mesmo nome e o download seguinte sobrescrevia.
+def test_dois_envios_no_mesmo_minuto_nao_se_sobrescrevem(tmp_path: Path):
+    mensagem = {"video": {"file_id": "abc", "file_name": "clipe.mp4", "file_size": 10}}
+    primeiro, _ = guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(b"um"), agora=AGORA)
+    segundo, _ = guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(b"dois"), agora=AGORA)
+    terceiro, _ = guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(b"tres"), agora=AGORA)
+
+    assert primeiro != segundo != terceiro
+    assert primeiro.read_bytes() == b"um"
+    assert segundo.read_bytes() == b"dois"
+    assert terceiro.read_bytes() == b"tres"
+    assert segundo.name.endswith("-2.mp4")
+    assert terceiro.name.endswith("-3.mp4")
+
+
+def test_caminho_livre_devolve_o_proprio_quando_nao_existe(tmp_path: Path):
+    alvo = tmp_path / "novo.mp4"
+    assert caminho_livre(alvo) == alvo
+
+
+def test_legenda_acompanha_o_nome_final(tmp_path: Path):
+    mensagem = {"video": {"file_id": "a", "file_name": "c.mp4"}, "caption": "bastidor"}
+    guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(), agora=AGORA)
+    segundo, _ = guardar(mensagem, "tok", raiz=tmp_path, http_get=http_fake(), agora=AGORA)
+    assert segundo.with_suffix(segundo.suffix + ".txt").exists()
