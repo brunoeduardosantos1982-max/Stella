@@ -40,7 +40,12 @@ ARQUIVOS_CRITICOS = [
 
 # Um cofre Brevo por cliente (brevo-<cliente>.json). O antigo brevo.json era so
 # da Josie e ja causou 401 quando outro projeto o assumiu como global.
-COFRES = ["telegram.json", "brevo-josie.json", "brevo-mva.json"]
+COFRES = [
+    "telegram.json",
+    "brevo-josie.json",
+    "brevo-mva.json",
+    "brevo-centroviagens.json",
+]
 
 
 @dataclass
