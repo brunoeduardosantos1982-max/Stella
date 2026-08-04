@@ -45,6 +45,7 @@ COFRES = [
     "brevo-josie.json",
     "brevo-mva.json",
     "brevo-centroviagens.json",
+    "vercel.json",
 ]
 
 
