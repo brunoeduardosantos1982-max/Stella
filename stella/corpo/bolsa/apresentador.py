@@ -10,7 +10,7 @@ escapado com `html.escape` antes de entrar no HTML do Telegram.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import date, datetime, time
 from html import escape as _esc
 
 from stella.adapters.llm.base import LLMProvider
@@ -170,22 +170,38 @@ def _linha_cenario(neutros: Sequence[Setup]) -> str:
     return "📊 Cenário: " + ", ".join(segmentos) + " (candidatos a estrutura de opções)."
 
 
-def _linha_pregao(data_pregao: date | None, agora: datetime) -> str:
-    """Avisa quando o candle mais recente não é de hoje (feriado ou fim de semana).
+ABERTURA_PREGAO = time(10, 0)
 
-    Sem isso o card carimba a data de hoje sobre dados do último pregão, e quem
-    lê acha que está vendo o mercado de agora. Evita manter calendário da B3.
+
+def _linha_pregao(data_pregao: date | None, agora: datetime) -> str:
+    """Explica de quando são os dados quando o candle mais recente não é de hoje.
+
+    São três situações diferentes e o card não pode confundi-las:
+
+    1. Dado é de hoje: nada a dizer.
+    2. Dia útil ANTES das 10h (o pregão da B3 abre às 10h): o candle de hoje
+       ainda não existe porque o mercado não abriu. É o caso normal do card
+       da manhã, e dizer "sem pregão hoje" aqui seria mentira.
+    3. Fim de semana, feriado ou dia útil já com o mercado aberto sem candle:
+       não houve pregão. Evita manter calendário de feriado da B3.
 
     Args:
         data_pregao: Data do candle mais recente coletado, ou None.
         agora: Data/hora de referência do card.
 
     Returns:
-        A linha de aviso, ou string vazia quando os dados são de hoje.
+        A linha de contexto, ou string vazia quando os dados são de hoje.
     """
     if data_pregao is None or data_pregao == agora.date():
         return ""
-    return f"🗓️ Sem pregão hoje. Os dados abaixo são do pregão de " f"{data_pregao:%d/%m}."
+    dia_util = agora.weekday() < 5
+    antes_da_abertura = agora.time() < ABERTURA_PREGAO
+    if dia_util and antes_da_abertura:
+        return (
+            f"🔔 O pregão de hoje abre às 10h. A leitura abaixo é do "
+            f"fechamento de {data_pregao:%d/%m}."
+        )
+    return f"🗓️ Sem pregão hoje. Os dados abaixo são do pregão de {data_pregao:%d/%m}."
 
 
 def _linha_falhas(falhas: Sequence[tuple[str, str]]) -> str:

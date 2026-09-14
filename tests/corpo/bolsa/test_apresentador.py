@@ -190,3 +190,31 @@ def test_card_cheio_tambem_avisa_sem_pregao() -> None:
     card = montar_card(["<b>bloco</b>"], agora, data_pregao=date(2026, 9, 11))
     assert "Sem pregão hoje" in card
     assert "<b>bloco</b>" in card
+
+
+def test_card_da_manha_diz_que_o_pregao_ainda_vai_abrir() -> None:
+    """Segunda 09:15 com dado de sexta: o pregão de hoje ainda não abriu.
+
+    Dizer "sem pregão hoje" aqui seria mentira, e é o caso normal do card da
+    manhã, que roda antes da abertura das 10h.
+    """
+    agora = datetime(2026, 9, 14, 9, 15, tzinfo=UTC)  # segunda-feira
+    card = montar_card_vazio(agora, varridos=40, data_pregao=date(2026, 9, 11))
+    assert "abre às 10h" in card
+    assert "Sem pregão hoje" not in card
+    assert "11/09" in card
+
+
+def test_card_do_fim_de_semana_diz_que_nao_houve_pregao() -> None:
+    """Domingo: não é pré-abertura, é ausência de pregão mesmo."""
+    agora = datetime(2026, 9, 13, 9, 15, tzinfo=UTC)  # domingo
+    card = montar_card_vazio(agora, varridos=40, data_pregao=date(2026, 9, 11))
+    assert "Sem pregão hoje" in card
+    assert "abre às 10h" not in card
+
+
+def test_dia_util_depois_da_abertura_sem_candle_e_ausencia_de_pregao() -> None:
+    """Dia útil às 18:30 sem candle de hoje: feriado, não pré-abertura."""
+    agora = datetime(2026, 9, 14, 18, 30, tzinfo=UTC)  # segunda, pos-fechamento
+    card = montar_card_vazio(agora, varridos=40, data_pregao=date(2026, 9, 11))
+    assert "Sem pregão hoje" in card
