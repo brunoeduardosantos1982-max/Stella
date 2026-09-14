@@ -347,6 +347,39 @@ def radar(
 
 
 @app.command()
+def bolsa(
+    maximo: int = typer.Option(5, help="Máximo de alertas no card"),
+    capital_risco: float = typer.Option(500.0, help="Risco em reais por operação"),
+    seco: bool = typer.Option(
+        False, "--seco", help="Monta o card e imprime, sem enviar ao Telegram"
+    ),
+) -> None:
+    """Roda o Radar da Bolsa: detecta setups, dimensiona risco e manda o card no Telegram."""
+    from stella.corpo.bolsa.agente import rodar_radar_bolsa
+
+    class _RespostaSemEnvio:
+        def raise_for_status(self) -> None:
+            return None
+
+    def _http_post_seco(*_args: object, **_kwargs: object) -> _RespostaSemEnvio:
+        return _RespostaSemEnvio()
+
+    try:
+        if seco:
+            card = rodar_radar_bolsa(
+                maximo=maximo,
+                capital_risco=capital_risco,
+                http_post=_http_post_seco,
+            )
+        else:
+            card = rodar_radar_bolsa(maximo=maximo, capital_risco=capital_risco)
+    except Exception as e:
+        typer.echo(f"Senhor, o radar da bolsa falhou: {e}", err=True)
+        raise typer.Exit(code=1) from e
+    typer.echo(card)
+
+
+@app.command()
 def notificar(texto: str = typer.Argument(..., help="Texto para enviar agora no Telegram")) -> None:
     """Envia uma notificação imediata no Telegram."""
     from stella.corpo.lembretes import notificar as notificar_telegram
