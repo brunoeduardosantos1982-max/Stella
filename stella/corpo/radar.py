@@ -465,7 +465,7 @@ def _item_para_dict(it: ItemRadar, drop: str, quando: datetime) -> dict[str, str
 
 
 _LABELS_HORA: dict[int, str] = {6: "06h", 14: "14h", 19: "19h"}
-_MODELO_CURADOR = "claude-sonnet-4-6"
+_MODELO_CURADOR = "claude-sonnet-5-5"
 
 
 def label_horario(agora: datetime | None = None) -> str:

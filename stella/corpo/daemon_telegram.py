@@ -27,11 +27,12 @@ TELEGRAM_CHUNK_MAX = 4000
 # (wrapper batch do Windows) e o output vira texto em vez de JSON (session_id some).
 _PERSONA_FILE = Path(tempfile.gettempdir()) / "stella_persona_prompt.txt"
 
-# Modelo da Stella no Telegram: Sonnet por padrão (econômico p/ assistente).
-# A frase-gatilho "Stella eu preciso do Opus" (em qualquer lugar da mensagem;
-# o "Stella eu" é opcional) ativa o Opus só naquela tarefa.
-MODELO_PADRAO = "claude-sonnet-4-6"
-MODELO_OPUS = "claude-opus-4-8"
+# Modelo da Stella no Telegram: Sonnet 5.5. A frase-gatilho "Stella eu preciso
+# do Opus" e o modo conteúdo usam MODELO_OPUS, que desde 01/10/2026 também é o
+# Sonnet 5.5 (Opus abaixo do 5.5 saiu de uso). O nome ficou para não mexer no
+# roteamento; para voltar a ter um modelo mais forte ali, troque só esta linha.
+MODELO_PADRAO = "claude-sonnet-5-5"
+MODELO_OPUS = "claude-sonnet-5-5"
 GATILHO_OPUS = re.compile(
     r"\b(stella[,]?\s+eu\s+)?preciso\s+do\s+opus\b[\s,.:;!-]*",
     re.IGNORECASE,

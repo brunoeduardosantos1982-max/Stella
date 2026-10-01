@@ -15,8 +15,13 @@ from stella.adapters.llm.base import (
 )
 from stella.infra.usage_tracker import UsageRecord, UsageTracker, estimar_custo
 
-_MODELO_DEFAULT = "claude-sonnet-4-6"
-_MAX_TOKENS_DEFAULT = 4096
+_MODELO_DEFAULT = "claude-sonnet-5-5"
+# No Sonnet 5.5 o raciocínio fica sempre ligado e conta dentro do max_tokens,
+# mesmo quando o texto dele não volta: 4096 truncava a resposta.
+_MAX_TOKENS_DEFAULT = 16000
+# Ponto de partida do guia para geração de conteúdo, extração e classificação,
+# que é todo o trabalho da fábrica. Mais esforço = mais raciocínio e custo.
+_ESFORCO_DEFAULT = "low"
 
 
 class AnthropicProvider(LLMProvider):
@@ -26,7 +31,7 @@ class AnthropicProvider(LLMProvider):
     A API Anthropic trata `system` como parâmetro separado, não como mensagem.
 
     FB-M4: parametro `modelo` permite usar Sonnet, Opus ou qualquer outro
-    modelo Claude. Default mantem Sonnet para compat com M2.
+    modelo Claude. Default: Sonnet 5.5, com esforço `low`.
     """
 
     def __init__(
@@ -36,11 +41,13 @@ class AnthropicProvider(LLMProvider):
         max_tokens: int = _MAX_TOKENS_DEFAULT,
         tracker: UsageTracker | None = None,
         modelo: str = _MODELO_DEFAULT,
+        esforco: str = _ESFORCO_DEFAULT,
     ) -> None:
         self._client: Any = client or Anthropic(api_key=api_key)
         self._max_tokens = max_tokens
         self._tracker = tracker
         self._modelo = modelo
+        self._esforco = esforco
 
     def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
         return self.chat([Message(role="user", content=prompt)], schema=schema)
@@ -48,16 +55,18 @@ class AnthropicProvider(LLMProvider):
     def chat(self, messages: list[Message], schema: dict[str, Any] | None = None) -> LLMResponse:
         system_parts = [m.content for m in messages if m.role == "system"]
         conversa = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
-        kwargs = {
+        output_config: dict[str, Any] = {"effort": self._esforco}
+        if schema is not None:
+            # Saída estruturada: a API garante JSON válido no formato do schema.
+            output_config["format"] = {"type": "json_schema", "schema": schema}
+        kwargs: dict[str, Any] = {
             "model": self._modelo,
             "max_tokens": self._max_tokens,
             "messages": conversa,
+            "output_config": output_config,
         }
         if system_parts:
             kwargs["system"] = "\n\n".join(system_parts)
-        if schema is not None:
-            # Saída estruturada: a API garante JSON válido no formato do schema.
-            kwargs["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
 
         try:
             resp = self._client.messages.create(**kwargs)
@@ -71,8 +80,19 @@ class AnthropicProvider(LLMProvider):
             raise LLMUnavailableError(f"{e.status_code}: {e.message}") from e
         except Exception as e:
             raise LLMProviderError(str(e)) from e
+        motivo = getattr(resp, "stop_reason", None)
+        if motivo == "refusal":
+            detalhe = getattr(resp, "stop_details", None)
+            categoria = getattr(detalhe, "category", None) if detalhe else None
+            raise LLMProviderError(f"o modelo recusou o pedido (categoria: {categoria})")
+        if motivo == "max_tokens":
+            # Resposta cortada no meio: JSON quebrado ou texto pela metade.
+            raise LLMProviderError(f"resposta cortada no limite de {self._max_tokens} tokens")
+        # Lê pelo tipo do bloco: com raciocínio ligado a resposta pode começar
+        # com um bloco `thinking` (vazio por padrão) antes do texto.
+        texto = "".join(b.text for b in resp.content if getattr(b, "type", "text") == "text")
         result = LLMResponse(
-            texto=resp.content[0].text,
+            texto=texto,
             tokens_input=resp.usage.input_tokens,
             tokens_output=resp.usage.output_tokens,
         )

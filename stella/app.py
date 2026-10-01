@@ -72,11 +72,13 @@ def build_stella(config: StellaConfig) -> Stella:
         api_key=config.anthropic_api_key.get_secret_value(),
         tracker=tracker,
     )
-    # FB-M4 B6: provider Opus dedicado
+    # FB-M4 B6: slot "opus" (piso de qualidade mais alto). Desde 01/10/2026 é o
+    # Sonnet 5.5 em esforço `high`: Opus abaixo do 5.5 saiu de uso.
     opus = AnthropicProvider(
         api_key=config.anthropic_api_key.get_secret_value(),
         tracker=tracker,
-        modelo="claude-opus-4-7",
+        modelo="claude-sonnet-5-5",
+        esforco="high",
     )
     router = LLMRouter(
         gemma=gemma,

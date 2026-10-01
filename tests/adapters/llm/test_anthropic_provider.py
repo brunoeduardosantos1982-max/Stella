@@ -54,7 +54,7 @@ def test_complete_usa_modelo_sonnet():
     fake = _FakeAnthropicClient()
     provider = AnthropicProvider(api_key="ant-teste", client=fake)
     provider.complete("oi")
-    assert fake.messages.ultima_chamada["model"] == "claude-sonnet-4-6"
+    assert fake.messages.ultima_chamada["model"] == "claude-sonnet-5-5"
 
 
 def test_chat_separa_system_das_demais_mensagens():
@@ -85,11 +85,11 @@ def test_provider_registra_uso_quando_tracker_passado(tmp_path):
     assert total["tokens_input"] == 20  # do _FakeUsage anthropic
 
 
-def test_max_tokens_default_4096() -> None:
+def test_max_tokens_default_cabe_raciocinio_e_resposta() -> None:
     fake = _FakeAnthropicClient()
     provider = AnthropicProvider(api_key="ant", client=fake)
     provider.complete("oi")
-    assert fake.messages.ultima_chamada["max_tokens"] == 4096
+    assert fake.messages.ultima_chamada["max_tokens"] == 16000
 
 
 def test_max_tokens_configuravel_via_init() -> None:
@@ -108,8 +108,73 @@ def test_anthropic_provider_aceita_modelo_customizado() -> None:
 
 
 def test_anthropic_provider_modelo_default_e_sonnet() -> None:
-    """Compat: sem modelo explicito, continua usando claude-sonnet-4-6."""
+    """Sem modelo explicito, usa claude-sonnet-5-5."""
     fake = _FakeAnthropicClient()
     provider = AnthropicProvider(api_key="ant", client=fake)
     provider.complete("oi")
-    assert fake.messages.ultima_chamada["model"] == "claude-sonnet-4-6"
+    assert fake.messages.ultima_chamada["model"] == "claude-sonnet-5-5"
+
+
+def test_esforco_vai_no_output_config_junto_com_schema() -> None:
+    fake = _FakeAnthropicClient("{}")
+    provider = AnthropicProvider(api_key="ant", client=fake, esforco="high")
+    provider.complete("oi", schema={"type": "object"})
+    config = fake.messages.ultima_chamada["output_config"]
+    assert config["effort"] == "high"
+    assert config["format"]["schema"] == {"type": "object"}
+    assert "thinking" not in fake.messages.ultima_chamada  # disabled da 400 no Sonnet 5.5
+
+
+@dataclass
+class _FakeBloco:
+    type: str
+    text: str = ""
+    thinking: str = ""
+
+
+class _FakeMessagesComBlocos:
+    def __init__(self, content: list, stop_reason: str = "end_turn", stop_details=None):
+        self._resp = _FakeAnthropicResponse(content=content, usage=_FakeUsage(5, 5))
+        self._resp.stop_reason = stop_reason  # type: ignore[attr-defined]
+        self._resp.stop_details = stop_details  # type: ignore[attr-defined]
+
+    def create(self, **kwargs):
+        return self._resp
+
+
+class _ClienteComBlocos:
+    def __init__(self, *args, **kwargs):
+        self.messages = _FakeMessagesComBlocos(*args, **kwargs)
+
+
+def test_le_texto_pelo_tipo_e_ignora_bloco_de_raciocinio() -> None:
+    # Com raciocinio ligado a resposta pode comecar com um bloco thinking vazio.
+    cliente = _ClienteComBlocos([_FakeBloco("thinking"), _FakeBloco("text", text="resposta")])
+    provider = AnthropicProvider(api_key="ant", client=cliente)
+    assert provider.complete("oi").texto == "resposta"
+
+
+def test_recusa_vira_erro_do_provider() -> None:
+    import pytest
+
+    from stella.adapters.llm.base import LLMProviderError
+
+    @dataclass
+    class _Detalhe:
+        category: str
+
+    cliente = _ClienteComBlocos([], stop_reason="refusal", stop_details=_Detalhe("cyber"))
+    provider = AnthropicProvider(api_key="ant", client=cliente)
+    with pytest.raises(LLMProviderError, match="cyber"):
+        provider.complete("oi")
+
+
+def test_resposta_cortada_vira_erro_do_provider() -> None:
+    import pytest
+
+    from stella.adapters.llm.base import LLMProviderError
+
+    cliente = _ClienteComBlocos([_FakeBloco("text", text='{"a": ')], stop_reason="max_tokens")
+    provider = AnthropicProvider(api_key="ant", client=cliente)
+    with pytest.raises(LLMProviderError, match="cortada"):
+        provider.complete("oi")

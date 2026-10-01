@@ -69,14 +69,15 @@ def test_build_stella_registry_bind_builder_funcionou(monkeypatch, vault_tmp) ->
 
 
 def test_build_stella_opus_e_provider_anthropic_com_modelo_opus(monkeypatch, vault_tmp) -> None:
-    """B6: Stella.opus expoe AnthropicProvider configurado com claude-opus-4-7."""
+    """B6: o slot opus e o Sonnet 5.5 em esforco high (Opus abaixo do 5.5 saiu)."""
     monkeypatch.setenv("STELLA_NVIDIA_API_KEY", "fake")
     monkeypatch.setenv("STELLA_ANTHROPIC_API_KEY", "fake")
     monkeypatch.setenv("STELLA_VAULT_PATH", str(vault_tmp))
 
     stella = build_stella(StellaConfig())
     assert isinstance(stella.opus, AnthropicProvider)
-    assert stella.opus._modelo == "claude-opus-4-7"
+    assert stella.opus._modelo == "claude-sonnet-5-5"
+    assert stella.opus._esforco == "high"
 
 
 def test_build_stella_registra_mcp_postiz(monkeypatch, vault_tmp) -> None:

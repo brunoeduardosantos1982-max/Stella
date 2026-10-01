@@ -37,7 +37,7 @@ from stella.infra.config import StellaConfig
 logger = logging.getLogger("stella.bolsa")
 
 COFRE_TELEGRAM = Path("D:/VortexBrain00/.secrets/telegram.json")
-_MODELO_TESE = "claude-sonnet-4-6"
+_MODELO_TESE = "claude-sonnet-5-5"
 
 
 def enviar_telegram(
