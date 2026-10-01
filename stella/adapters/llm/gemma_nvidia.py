@@ -37,7 +37,8 @@ class GemmaNvidiaProvider(LLMProvider):
         )
         self._tracker = tracker
 
-    def complete(self, prompt: str) -> LLMResponse:
+    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
+        # Gemma via NVIDIA não tem saída estruturada aqui: `schema` é ignorado.
         return self.chat([Message(role="user", content=prompt)])
 
     def chat(self, messages: list[Message]) -> LLMResponse:

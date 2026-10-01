@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 
 class LLMProviderError(Exception):
@@ -39,7 +40,8 @@ class LLMProvider(ABC):
     """
 
     @abstractmethod
-    def complete(self, prompt: str) -> LLMResponse: ...
+    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
+        """`schema`: JSON Schema da resposta. Provedor sem saída estruturada ignora."""
 
     @abstractmethod
     def chat(self, messages: list[Message]) -> LLMResponse: ...

@@ -138,7 +138,7 @@ class FakeLLM(LLMProvider):
             )
         return self._responses.pop(0)
 
-    def complete(self, prompt: str) -> LLMResponse:
+    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
         self.calls.append(prompt)
         return LLMResponse(texto=self._proxima_resposta(), tokens_input=10, tokens_output=20)
 

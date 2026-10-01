@@ -42,10 +42,10 @@ class AnthropicProvider(LLMProvider):
         self._tracker = tracker
         self._modelo = modelo
 
-    def complete(self, prompt: str) -> LLMResponse:
-        return self.chat([Message(role="user", content=prompt)])
+    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
+        return self.chat([Message(role="user", content=prompt)], schema=schema)
 
-    def chat(self, messages: list[Message]) -> LLMResponse:
+    def chat(self, messages: list[Message], schema: dict[str, Any] | None = None) -> LLMResponse:
         system_parts = [m.content for m in messages if m.role == "system"]
         conversa = [{"role": m.role, "content": m.content} for m in messages if m.role != "system"]
         kwargs = {
@@ -55,6 +55,9 @@ class AnthropicProvider(LLMProvider):
         }
         if system_parts:
             kwargs["system"] = "\n\n".join(system_parts)
+        if schema is not None:
+            # Saída estruturada: a API garante JSON válido no formato do schema.
+            kwargs["output_config"] = {"format": {"type": "json_schema", "schema": schema}}
 
         try:
             resp = self._client.messages.create(**kwargs)

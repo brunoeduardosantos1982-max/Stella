@@ -22,6 +22,18 @@ from stella.framework.resources.skills_registry import SkillsRegistry
 
 Veredicto = Literal["aprovado", "refazer", "aceitar_com_aviso", "rejeitar"]
 
+# Saída estruturada do revisor: a API devolve sempre este formato, então uma
+# resposta boa nunca é rejeitada por vir com cerca de markdown ou texto solto.
+_SCHEMA_VEREDICTO: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "veredicto": {"type": "string", "enum": list(get_args(Veredicto))},
+        "feedback": {"type": "string"},
+    },
+    "required": ["veredicto", "feedback"],
+    "additionalProperties": False,
+}
+
 _PADRAO_PATH_TEMPLATE = "C04 Claude Obsidian/Padrões/{nome}.md"
 
 
@@ -123,7 +135,7 @@ class QualityReviewer:
         )
 
         provider = self._llm.with_minimum(ModeloIA.SONNET).select(complexity="high")
-        resposta = provider.complete(prompt)
+        resposta = provider.complete(prompt, schema=_SCHEMA_VEREDICTO)
         return self._parsear_resposta(resposta.texto)
 
     def _read_opcional(self, path: str) -> str:
@@ -149,8 +161,8 @@ class QualityReviewer:
             f"Output do agente:\n{json.dumps(output.resultado, ensure_ascii=False)}\n\n"
             f"Padrao do setor (C04/Padroes/{manifest.setor}.md):\n{padrao or '(nao declarado)'}\n\n"
             f"Aprendizados acumulados:\n{aprendizados or '(nenhum)'}\n\n"
-            "Avalie e responda APENAS com um JSON valido no formato:\n"
-            '{"veredicto": "aprovado|refazer|aceitar_com_aviso|rejeitar", "feedback": "explicacao em PT-BR"}'
+            "Avalie e devolva o veredicto (aprovado, refazer, aceitar_com_aviso ou rejeitar) "
+            "com o feedback explicado em PT-BR."
         )
 
     def _parsear_resposta(self, texto: str) -> tuple[Veredicto, str]:

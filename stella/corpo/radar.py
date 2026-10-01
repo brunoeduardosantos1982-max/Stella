@@ -246,11 +246,28 @@ _INSTRUCAO_CURADORIA = (
     "para virar post hoje. Para cada um devolva: titulo, url e veiculo (copie exatamente "
     "do candidato), resumo (1 a 2 linhas em português), gancho (um ângulo de post curto "
     "em português, na voz de estrategista) e apelido (um código curto kebab-case com 2 a 3 "
-    "palavras, temático e fácil de lembrar, ex: ia-google-agentes). Não use travessão. "
-    "Responda APENAS um array JSON com objetos "
-    "{{titulo, url, veiculo, resumo, gancho, apelido}}, sem texto fora do JSON.\n\n"
+    "palavras, temático e fácil de lembrar, ex: ia-google-agentes). Não use travessão.\n\n"
     "Candidatos:\n{lista}"
 )
+
+_CAMPOS_ITEM = ("titulo", "url", "veiculo", "resumo", "gancho", "apelido")
+# Saída estruturada da curadoria: a API devolve sempre {"itens": [...]} neste formato.
+_SCHEMA_CURADORIA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "itens": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {campo: {"type": "string"} for campo in _CAMPOS_ITEM},
+                "required": list(_CAMPOS_ITEM),
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["itens"],
+    "additionalProperties": False,
+}
 
 
 def montar_prompt_curadoria(candidatos: list[Candidato], n: int) -> str:
@@ -262,16 +279,11 @@ def montar_prompt_curadoria(candidatos: list[Candidato], n: int) -> str:
 
 
 def _extrair_json(texto: str) -> Any:
-    t = texto.strip()
-    if t.startswith("```"):
-        t = t.split("```", 2)[1]
-        t = t.removeprefix("json").strip()
-    inicio, fim = t.find("["), t.rfind("]")
-    if inicio == -1 or fim == -1:
-        raise ValueError("resposta do curador sem array JSON")
-    parsed = json.loads(t[inicio : fim + 1])
+    parsed = json.loads(texto)
+    if isinstance(parsed, dict):
+        parsed = parsed.get("itens")
     if not isinstance(parsed, list):
-        raise ValueError("resposta do curador nao e um array JSON")
+        raise ValueError("resposta do curador sem lista de itens")
     return parsed
 
 
@@ -279,7 +291,7 @@ def _curar_pool(candidatos: list[Candidato], n: int, *, provider: LLMProvider) -
     """Pede ao LLM os top N de um pool, com resumo e gancho; devolve no máximo N."""
     if not candidatos or n <= 0:
         return []
-    resposta = provider.complete(montar_prompt_curadoria(candidatos, n))
+    resposta = provider.complete(montar_prompt_curadoria(candidatos, n), schema=_SCHEMA_CURADORIA)
     dados = _extrair_json(resposta.texto)
     itens = [
         ItemRadar(
@@ -320,33 +332,60 @@ def curar(
     return (reservados + complementares)[:n]
 
 
-def montar_card(itens: list[ItemRadar], horario_label: str, agora: datetime | None = None) -> str:
+# O Telegram recusa mensagem acima de 4096 caracteres com "400 message is too
+# long". Foi isso que derrubou o radar de 07/2026 a 01/10/2026: quando a
+# curadoria falhava, o card degradado levava o trecho bruto de cada notícia e
+# passava de 7 mil caracteres. A conta aqui inclui as tags, então sobra folga.
+TELEGRAM_LIMITE = 4096
+_RESUMO_MAX = 300
+
+
+def _cortar(texto: str, limite: int) -> str:
+    """Corta no último espaço antes do limite e marca com reticências."""
+    texto = " ".join(texto.split())
+    if len(texto) <= limite:
+        return texto
+    return texto[:limite].rsplit(" ", 1)[0].rstrip(" ,.;:") + "…"
+
+
+def montar_card(
+    itens: list[ItemRadar],
+    horario_label: str,
+    agora: datetime | None = None,
+    aviso: str | None = None,
+) -> str:
     """Monta card HTML do Telegram a partir dos itens curados.
 
     Args:
         itens: Lista de ItemRadar com notícias curadas.
         horario_label: Rótulo da hora (ex: "06h", "14h").
         agora: Data/hora de referência (FUSO). Se None, usa datetime.now(FUSO).
+        aviso: Linha de alerta logo abaixo do cabeçalho (ex.: curadoria fora do ar).
 
     Returns:
-        String formatada com HTML tags (<b>, <a>, <i>) para Telegram parse_mode=HTML.
+        String formatada com HTML tags (<b>, <a>, <i>) para Telegram parse_mode=HTML,
+        sempre dentro de TELEGRAM_LIMITE: item que não cabe fica de fora.
         Sem em-dash (—), pronto para envio público.
     """
     quando = agora or datetime.now(FUSO)
     cabecalho = f"📰 <b>RADAR {horario_label} · {quando:%d/%m}</b>"
+    if aviso:
+        cabecalho += f"\n⚠️ {_esc(aviso)}"
     if not itens:
         return f"{cabecalho}\n\nSem novidade quente neste drop, Senhor."
-    blocos = [cabecalho, ""]
+    card = cabecalho
     for i, it in enumerate(itens, start=1):
         ref = f"▸ <code>{_esc(it.apelido)}</code>\n" if it.apelido else ""
-        blocos.append(
+        bloco = (
             f"{ref}<b>{i}. {_esc(it.titulo)}</b>\n"
             f'🔗 <a href="{_esc(it.url, quote=True)}">{_esc(it.veiculo)}</a>\n'
-            f"{_esc(it.resumo)}\n"
+            f"{_esc(_cortar(it.resumo, _RESUMO_MAX))}\n"
             f"💡 <i>{_esc(it.gancho)}</i>"
         )
-        blocos.append("")
-    return "\n".join(blocos).strip()
+        if len(card) + 2 + len(bloco) > TELEGRAM_LIMITE:
+            break
+        card += "\n\n" + bloco
+    return card
 
 
 COFRE_TELEGRAM = Path("D:/VortexBrain00/.secrets/telegram.json")
@@ -454,7 +493,20 @@ def construir_provider() -> LLMProvider:
     )
 
 
-def _card_degradado(candidatos: list[Candidato], n: int, label: str, agora: datetime) -> str:
+def _motivo_curto(exc: Exception) -> str:
+    """Traduz a falha da curadoria numa frase curta para o card."""
+    if "credit balance" in str(exc):
+        return "Curadoria por IA fora do ar: a conta da API da Anthropic está sem crédito."
+    return f"Curadoria por IA fora do ar ({type(exc).__name__}); links sem curadoria."
+
+
+def _card_degradado(
+    candidatos: list[Candidato],
+    n: int,
+    label: str,
+    agora: datetime,
+    motivo: str | None = None,
+) -> str:
     """Monta um card com links crus quando a curadoria falha.
 
     Args:
@@ -462,6 +514,7 @@ def _card_degradado(candidatos: list[Candidato], n: int, label: str, agora: date
         n: Numero maximo de itens.
         label: Label de horario para o cabecalho.
         agora: Data/hora de referencia.
+        motivo: Por que a curadoria falhou; vira linha de aviso no card.
 
     Returns:
         Card no mesmo formato Telegram-markup que montar_card, sem curadoria LLM.
@@ -476,7 +529,7 @@ def _card_degradado(candidatos: list[Candidato], n: int, label: str, agora: date
         )
         for c in candidatos[:n]
     ]
-    return montar_card(itens, label, agora=agora)
+    return montar_card(itens, label, agora=agora, aviso=motivo)
 
 
 def rodar_radar(
@@ -530,8 +583,9 @@ def rodar_radar(
     if novos:
         try:
             itens = curar(novos, n, provider=provider)
-        except Exception:
-            card = _card_degradado(novos, n, label, quando)
+        except Exception as exc:  # noqa: BLE001 - curadoria falha, o drop sai degradado
+            logger.warning("radar: curadoria falhou, enviando card degradado: %s", exc)
+            card = _card_degradado(novos, n, label, quando, motivo=_motivo_curto(exc))
             enviar(card)
             gravar_seen(seen, [c.url for c in novos[:n]], path=seen_path, agora=quando)
             return itens

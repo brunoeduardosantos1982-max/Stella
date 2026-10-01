@@ -131,7 +131,7 @@ class _ProviderFake(LLMProvider):
         self._texto = texto
         self.prompt_recebido = ""
 
-    def complete(self, prompt: str) -> LLMResponse:
+    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
         self.prompt_recebido = prompt
         return LLMResponse(texto=self._texto)
 
@@ -140,14 +140,12 @@ class _ProviderFake(LLMProvider):
 
 
 def test_curar_parseia_json_e_limita_em_n() -> None:
-    resposta = """```json
-    [
+    resposta = """{"itens": [
       {"titulo": "A", "url": "https://x.com/a", "veiculo": "x.com",
-       "resumo": "resumo a", "gancho": "gancho a"},
+       "resumo": "resumo a", "gancho": "gancho a", "apelido": "a"},
       {"titulo": "B", "url": "https://x.com/b", "veiculo": "x.com",
-       "resumo": "resumo b", "gancho": "gancho b"}
-    ]
-    ```"""
+       "resumo": "resumo b", "gancho": "gancho b", "apelido": "b"}
+    ]}"""
     provider = _ProviderFake(resposta)
     cands = [_cand("https://x.com/a"), _cand("https://x.com/b"), _cand("https://x.com/c")]
     itens = radar.curar(cands, n=2, provider=provider)
@@ -160,7 +158,7 @@ def test_curar_parseia_json_e_limita_em_n() -> None:
 class _ProviderEcoFake(LLMProvider):
     """Ecoa um item por URL que aparece no prompt (reflete os candidatos do pool)."""
 
-    def complete(self, prompt: str) -> LLMResponse:
+    def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
         import re
 
         urls = re.findall(r"https://\S+", prompt)
@@ -176,6 +174,19 @@ class _ProviderEcoFake(LLMProvider):
 
 def _cand_tema(url: str, tema: str) -> radar.Candidato:
     return radar.Candidato(titulo="t", url=url, veiculo="v", snippet="s", data="d", tema=tema)
+
+
+def test_curar_pede_saida_estruturada() -> None:
+    class _ProviderEspiao(_ProviderFake):
+        def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> LLMResponse:
+            self.schema = schema
+            return super().complete(prompt)
+
+    provider = _ProviderEspiao('{"itens": []}')
+    radar.curar([_cand("https://x.com/a")], n=1, provider=provider)
+    assert provider.schema is not None
+    assert provider.schema["required"] == ["itens"]
+    assert "APENAS" not in provider.prompt_recebido  # formato vem do schema, não do texto
 
 
 def test_curar_reserva_vaga_para_ia_tech() -> None:
@@ -240,6 +251,40 @@ def test_montar_card_escapa_html_dos_campos() -> None:
     assert "<b>" in card
     assert "<i>" in card
     assert "<a href=" in card
+
+
+def test_montar_card_nunca_passa_do_limite_do_telegram() -> None:
+    # Reproduz o drop de 01/10/2026: curadoria fora do ar, card degradado com
+    # trechos brutos longos, 7073 caracteres e "400 message is too long".
+    longo = "palavra " * 400
+    itens = [
+        radar.ItemRadar(
+            titulo=f"T{i} " + "x" * 150,
+            url=f"https://x.com/{i}",
+            veiculo="x.com",
+            resumo=longo,
+            gancho="g",
+        )
+        for i in range(8)
+    ]
+    card = radar.montar_card(itens, "06h", agora=datetime(2026, 10, 1, 6, 0, tzinfo=radar.FUSO))
+    assert len(card) <= radar.TELEGRAM_LIMITE
+    assert "<b>1. T0" in card
+    assert "…" in card  # resumo cortado, não despejado
+
+
+def test_card_degradado_avisa_falta_de_credito() -> None:
+    cands = [_cand("https://x.com/a")]
+    exc = RuntimeError("400: Your credit balance is too low to access the Anthropic API.")
+    card = radar._card_degradado(
+        cands,
+        1,
+        "06h",
+        datetime(2026, 10, 1, 6, 0, tzinfo=radar.FUSO),
+        motivo=radar._motivo_curto(exc),
+    )
+    assert "sem crédito" in card
+    assert "https://x.com/a" in card
 
 
 def test_montar_card_vazio_avisa_sem_novidade() -> None:
@@ -328,7 +373,7 @@ def test_rodar_radar_degrada_quando_curador_falha(tmp_path: Path, monkeypatch: A
         ]
 
     class _ProviderQuebra(_ProviderFake):
-        def complete(self, prompt: str) -> Any:
+        def complete(self, prompt: str, schema: dict[str, Any] | None = None) -> Any:
             raise RuntimeError("LLM fora do ar")
 
     radar.rodar_radar(
