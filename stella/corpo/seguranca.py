@@ -3,8 +3,9 @@ from __future__ import annotations
 import json
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import httpx
@@ -47,6 +48,8 @@ COFRES = [
     "brevo-centroviagens.json",
     "vercel.json",
     "ofertasmagneto.json",
+    "google-ads-centroviagens.json",
+    "instagram-cv.json",
 ]
 
 
@@ -107,6 +110,76 @@ def verificar_cofres(relatorio: Relatorio, cofres_dir: Path = COFRES_DIR) -> Non
             relatorio.criticos.append(f"Cofre corrompido (JSON inválido): {nome}")
 
 
+TOKEN_INSTAGRAM_VALIDADE_DIAS = 60
+TOKEN_INSTAGRAM_AVISO_DIAS = 10
+
+
+def _consultar_instagram(token: str) -> tuple[int, str]:
+    resposta = httpx.get(
+        "https://graph.instagram.com/v23.0/me",
+        params={"fields": "username", "access_token": token},
+        timeout=20,
+    )
+    return resposta.status_code, resposta.text[:200]
+
+
+def verificar_token_instagram(
+    relatorio: Relatorio,
+    cofres_dir: Path = COFRES_DIR,
+    hoje: date | None = None,
+    consultar: Callable[[str], tuple[int, str]] | None = None,
+) -> None:
+    """O token do Direct do Instagram (respondeFácil) vale ~60 dias e a Meta o invalida sem aviso
+    (já aconteceu em 02/10/2026: o robô ficou mudo). Valida na Meta e avisa 10 dias antes do vencimento.
+
+    Cofre ausente ou corrompido já é reportado por `verificar_cofres`; aqui só se checa o que existe.
+    """
+    try:
+        cofre = json.loads((cofres_dir / "instagram-cv.json").read_text(encoding="utf-8"))
+    except Exception:
+        return
+    token = cofre.get("access_token")
+    if not token:
+        return
+    hoje = hoje or date.today()
+    consultar = consultar or _consultar_instagram
+
+    aceito = False
+    try:
+        status, _corpo = consultar(token)
+        aceito = status == 200
+        if not aceito:
+            relatorio.criticos.append(
+                f"Instagram Direct: a Meta recusou o token (HTTP {status}); o robô de Direct não responde. "
+                "Gerar outro (OAuth manual, receita na memória reference_instagram_centroviagens_perfil)"
+            )
+    except Exception:
+        relatorio.atencoes.append(
+            "Instagram Direct: não consegui validar o token na Meta (sem rede ou fora do ar)"
+        )
+
+    try:
+        criado = date.fromisoformat(str(cofre.get("token_criado")))
+    except ValueError:
+        relatorio.atencoes.append(
+            "Instagram Direct: cofre sem `token_criado`; registre a data para o aviso de vencimento"
+        )
+        return
+    restantes = (criado + timedelta(days=TOKEN_INSTAGRAM_VALIDADE_DIAS) - hoje).days
+    if restantes <= TOKEN_INSTAGRAM_AVISO_DIAS:
+        quando = (
+            f"vence em {restantes} dias"
+            if restantes > 0
+            else "passou da data estimada de vencimento"
+        )
+        relatorio.atencoes.append(
+            f"Instagram Direct: o token {quando}. Renovar (graph.instagram.com/refresh_access_token com "
+            "grant_type=ig_refresh_token), trocar INSTAGRAM_CV_TOKEN na Vercel (respondefacil), republicar e atualizar `token_criado`"
+        )
+    elif aceito:
+        relatorio.infos.append(f"Instagram Direct: token ok, vence em {restantes} dias")
+
+
 def contar_daemon_rodando() -> int:
     """Conta processos python rodando `stella daemon` via PowerShell (Windows)."""
     comando = (
@@ -161,6 +234,7 @@ def executar_verificacao(vault_dir: Path = VAULT_DIR, cofres_dir: Path = COFRES_
         alteradas = notas_alteradas_fora_de_c04(vault_dir)
         relatorio.infos.append(f"Notas alteradas fora de C04 (24h): {alteradas}")
     verificar_cofres(relatorio, cofres_dir)
+    verificar_token_instagram(relatorio, cofres_dir)
     verificar_daemon(relatorio)
     return relatorio
 

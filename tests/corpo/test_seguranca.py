@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import date
 from pathlib import Path
 
 from stella.corpo import seguranca
@@ -117,3 +118,87 @@ def test_montar_card_destaca_problemas() -> None:
     assert card.startswith("🛡 Segurança diária | ❌ Problema")
     assert "🚨 Cofre sumiu: brevo.json" in card
     assert "⚠️ Daemon Telegram PARADO" in card
+
+
+# --- token do Instagram Direct (02/10/2026): expira em ~60 dias e o robô fica mudo sem avisar ---
+def _cofre_instagram(
+    tmp_path: Path, token_criado: str | None = "2026-10-02", token: str | None = "IGAAteste"
+) -> Path:
+    cofres = tmp_path / "cofres_ig"
+    cofres.mkdir()
+    dados: dict = {}
+    if token:
+        dados["access_token"] = token
+    if token_criado:
+        dados["token_criado"] = token_criado
+    (cofres / "instagram-cv.json").write_text(json.dumps(dados), encoding="utf-8")
+    return cofres
+
+
+def test_token_instagram_valido_longe_do_vencimento_so_informa(tmp_path: Path) -> None:
+    relatorio = seguranca.Relatorio()
+    seguranca.verificar_token_instagram(
+        relatorio,
+        _cofre_instagram(tmp_path),
+        hoje=date(2026, 10, 22),
+        consultar=lambda t: (200, "ok"),
+    )
+    assert relatorio.problemas == []
+    assert any("Instagram Direct" in i and "40 dias" in i for i in relatorio.infos)
+
+
+def test_token_instagram_perto_de_vencer_e_atencao(tmp_path: Path) -> None:
+    relatorio = seguranca.Relatorio()
+    seguranca.verificar_token_instagram(
+        relatorio,
+        _cofre_instagram(tmp_path),
+        hoje=date(2026, 11, 22),
+        consultar=lambda t: (200, "ok"),
+    )
+    assert relatorio.criticos == []
+    assert any("vence em 9 dias" in a for a in relatorio.atencoes)
+
+
+def test_token_instagram_recusado_pela_meta_e_critico(tmp_path: Path) -> None:
+    relatorio = seguranca.Relatorio()
+    seguranca.verificar_token_instagram(
+        relatorio,
+        _cofre_instagram(tmp_path),
+        hoje=date(2026, 10, 3),
+        consultar=lambda t: (400, "sessao invalidada"),
+    )
+    assert any("recusou o token" in c for c in relatorio.criticos)
+
+
+def test_token_instagram_sem_rede_vira_atencao_e_nao_derruba(tmp_path: Path) -> None:
+    def sem_rede(_token: str):
+        raise OSError("sem rede")
+
+    relatorio = seguranca.Relatorio()
+    seguranca.verificar_token_instagram(
+        relatorio, _cofre_instagram(tmp_path), hoje=date(2026, 10, 3), consultar=sem_rede
+    )
+    assert relatorio.criticos == []
+    assert any("não consegui validar" in a for a in relatorio.atencoes)
+
+
+def test_token_instagram_sem_data_de_criacao_pede_registro(tmp_path: Path) -> None:
+    relatorio = seguranca.Relatorio()
+    seguranca.verificar_token_instagram(
+        relatorio,
+        _cofre_instagram(tmp_path, token_criado=None),
+        hoje=date(2026, 10, 3),
+        consultar=lambda t: (200, "ok"),
+    )
+    assert any("token_criado" in a for a in relatorio.atencoes)
+
+
+def test_cofre_instagram_sem_token_nao_acusa_nada(tmp_path: Path) -> None:
+    relatorio = seguranca.Relatorio()
+    seguranca.verificar_token_instagram(
+        relatorio,
+        _cofre_instagram(tmp_path, token=None),
+        hoje=date(2026, 10, 3),
+        consultar=lambda t: (500, "x"),
+    )
+    assert relatorio.problemas == [] and relatorio.infos == []
