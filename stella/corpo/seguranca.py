@@ -50,6 +50,7 @@ COFRES = [
     "ofertasmagneto.json",
     "google-ads-centroviagens.json",
     "instagram-cv.json",
+    "cloudflare.json",
 ]
 
 
