@@ -13,6 +13,7 @@ from pathlib import Path
 
 import httpx
 
+from stella.corpo.geradores import responder_gerador, rotear_gerador
 from stella.corpo.persona_carrossel import GATILHO_CARROSSEL, PERSONA_CARROSSEL
 
 COFRE_TELEGRAM = Path("D:/VortexBrain00/.secrets/telegram.json")
@@ -650,6 +651,22 @@ def process_update(
             secrets.chat_id,
             "🧠 Memória da conversa reiniciada. Começamos do zero, Senhor.",
         )
+        return
+
+    # Geradores de conteúdo com dono próprio (ex.: brujosie) são roteados ANTES do modo
+    # conteúdo genérico, que é do @brunoe.santos. Não passam pelo claude -p do chat e não
+    # tocam na sessão nem no estado sticky (ver stella/corpo/geradores.py).
+    gerador = rotear_gerador(texto_limpo)
+    if gerador is not None:
+        try:
+            resposta_gerador = responder_gerador(gerador, texto_limpo)
+        except Exception as exc:
+            _append_log(log_path, f"gerador {gerador} falhou: {type(exc).__name__}")
+            resposta_gerador = (
+                f"Senhor, o gerador {gerador} falhou ao disparar. Nada foi preparado."
+            )
+        runtime.last_execution = datetime.now().isoformat(timespec="seconds")
+        send_message(secrets.bot_token, secrets.chat_id, resposta_gerador)
         return
 
     try:
