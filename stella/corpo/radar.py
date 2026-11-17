@@ -19,6 +19,7 @@ import httpx
 
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.base import LLMProvider
+from stella.adapters.llm.claude_cli import ClaudeCliProvider, ProvedorComReserva
 from stella.adapters.research.tavily_client import buscar_noticias_tavily
 from stella.corpo.radar_drops import (
     DROPS_PATH,
@@ -488,8 +489,14 @@ def construir_provider() -> LLMProvider:
         Instancia de AnthropicProvider configurada com modelo curador.
     """
     cfg = StellaConfig()
-    return AnthropicProvider(
-        api_key=cfg.anthropic_api_key.get_secret_value(), modelo=_MODELO_CURADOR
+    return ProvedorComReserva(
+        [
+            AnthropicProvider(
+                api_key=cfg.anthropic_api_key.get_secret_value(), modelo=_MODELO_CURADOR
+            ),
+            # Reserva: assinatura do Claude Code quando a API fica sem crédito.
+            ClaudeCliProvider(modelo="sonnet"),
+        ]
     )
 
 

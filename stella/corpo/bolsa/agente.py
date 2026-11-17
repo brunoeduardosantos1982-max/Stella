@@ -20,6 +20,7 @@ import httpx
 
 from stella.adapters.llm.anthropic_provider import AnthropicProvider
 from stella.adapters.llm.base import LLMProvider
+from stella.adapters.llm.claude_cli import ClaudeCliProvider, ProvedorComReserva
 from stella.corpo.bolsa.apresentador import (
     montar_bloco_alerta,
     montar_card,
@@ -82,7 +83,15 @@ def _enviar_seguro(texto: str, cofre_path: Path, http_post: Callable[..., Any]) 
 def _construir_provider() -> LLMProvider:
     """Constrói AnthropicProvider com credenciais de StellaConfig."""
     cfg = StellaConfig()
-    return AnthropicProvider(api_key=cfg.anthropic_api_key.get_secret_value(), modelo=_MODELO_TESE)
+    return ProvedorComReserva(
+        [
+            AnthropicProvider(
+                api_key=cfg.anthropic_api_key.get_secret_value(), modelo=_MODELO_TESE
+            ),
+            # Reserva: assinatura do Claude Code quando a API fica sem crédito.
+            ClaudeCliProvider(modelo="sonnet"),
+        ]
+    )
 
 
 def rodar_radar_bolsa(
